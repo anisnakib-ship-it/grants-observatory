@@ -1,0 +1,73 @@
+{# ---- MACRO: render a grant as a compact table row (shared by dashboard + /api/grants/cards) ---- #}
+{% macro grant_card(grant, card_mode, idx=0, today='') %}
+{% set is_today = grant.found_at and today and grant.found_at[:10] == today %}
+<article class="program-card {{ 'is-new' if not grant.is_read else '' }} {{ 'is-today' if is_today else '' }}"
+         data-id="{{ grant.id }}"
+         data-category="{{ grant.site_category }}"
+         data-read="{{ grant.is_read }}"
+         data-date="{{ grant.found_at or '' }}"
+         data-source="{{ grant.site_name }}"
+         data-url="{{ grant.url }}"
+         data-title="{{ grant.title }}"
+         data-desc="{{ grant.description or '' }}"
+         data-keywords="{{ grant.keywords_matched or '[]' }}"
+         data-details-scraped="{{ grant.details_scraped or 0 }}"
+         data-status="{{ grant.status or 'pending' }}"
+         data-deadline="{{ grant.deadline or '' }}"
+         data-deadline-date="{{ grant.deadline_date or '' }}"
+         data-last-seen="{{ grant.last_seen_at or grant.found_at or '' }}"
+         data-published="{{ grant.published_date or '' }}"
+         style="--i:{{ idx }}">
+
+    <label class="row-select" title="Select">
+        <input type="checkbox" class="pc-check" data-grant-id="{{ grant.id }}" aria-label="Select program">
+    </label>
+
+    <span class="row-cat cat-{{ grant.site_category|lower|replace('/', '-')|replace(' ', '-') }}" title="{{ grant.site_category }}">{{ grant.site_category }}</span>
+
+    <div class="row-titlewrap">
+        {% if grant.item_type == 'news' %}<span class="row-flag news-type" title="Agency activity / news (not a funding call)">NEWS</span>{% endif %}
+        <span class="row-title" title="{{ grant.title }}">{{ grant.title }}</span>
+        {% if grant.published_date %}
+        <span class="row-flag verified" title="Publish date confirmed from source (feed/metadata): {{ grant.published_date }}">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>VERIFIED
+        </span>
+        {% else %}
+        <span class="row-flag proxy" title="No publish date on the source — kept because it was first seen today">~ NEW-TODAY</span>
+        {% endif %}
+    </div>
+
+    <span class="row-source" title="{{ grant.site_name }}">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        <span>{{ grant.site_name }}</span>
+    </span>
+
+    <time class="row-date {{ 'is-verified' if grant.published_date else 'is-proxy' }}"
+          datetime="{{ grant.published_date or grant.found_at or '' }}"
+          title="{% if grant.published_date %}Announced {{ grant.published_date }} (verified){% else %}First seen {{ grant.found_at[:10] if grant.found_at else '' }} (no source date){% endif %}">
+        {% if grant.published_date %}{{ grant.published_date[5:] }}{% elif is_today %}<span data-i18n="today">today</span>{% else %}{{ grant.found_at[5:10] if grant.found_at else '—' }}{% endif %}
+    </time>
+
+    <span class="row-deadline" data-deadline-date="{{ grant.deadline_date or '' }}">
+        {% if grant.deadline_date or grant.deadline %}{{ grant.deadline_date or grant.deadline }}{% else %}<span class="row-dim">—</span>{% endif %}
+    </span>
+
+    <div class="row-actions">
+        {% if card_mode == 'inbox' %}
+        <button class="btn-accept" data-grant-id="{{ grant.id }}" title="Accept" data-i18n-title="accept">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        </button>
+        <button class="btn-reject" data-grant-id="{{ grant.id }}" title="Reject" data-i18n-title="reject">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+        {% elif card_mode == 'rejected' %}
+        <button class="btn-restore" data-grant-id="{{ grant.id }}" title="Restore" data-i18n-title="restore">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+        </button>
+        {% endif %}
+        <button class="btn-expand" aria-label="View full details" data-grant-id="{{ grant.id }}" title="Details">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+        </button>
+    </div>
+</article>
+{% endmacro %}

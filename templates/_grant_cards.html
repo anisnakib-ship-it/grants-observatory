@@ -1,0 +1,2 @@
+{% from "_macros.html" import grant_card %}
+{% for grant in grants %}{{ grant_card(grant, card_mode, start_idx + loop.index0, today) }}{% endfor %}

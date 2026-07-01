@@ -1,0 +1,2023 @@
+{% from "_macros.html" import grant_card %}<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grants Observatory</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <!-- Skip Link -->
+    <a href="#main" class="skip-link">Skip to main content</a>
+
+    <!-- Atmosphere -->
+    <div class="atmosphere" aria-hidden="true">
+        <div class="atmo-noise"></div>
+        <div class="atmo-glow"></div>
+        <div class="atmo-grid"></div>
+    </div>
+
+    <!-- Toast System -->
+    <div id="toasts" class="toast-rack" role="status" aria-live="polite" aria-atomic="false"></div>
+
+    <!-- Particle Canvas -->
+    <canvas id="particleCanvas" class="particle-canvas" aria-hidden="true"></canvas>
+
+    <!-- ===== SETTINGS DRAWER ===== -->
+    <div class="drawer-backdrop" id="drawerBackdrop" aria-hidden="true"></div>
+    <aside class="drawer" id="settingsDrawer" role="dialog" aria-label="Settings" aria-hidden="true">
+        <div class="drawer-header">
+            <h2 data-i18n="settings">Settings</h2>
+            <button class="drawer-close" id="drawerCloseBtn" aria-label="Close settings">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <div class="drawer-body">
+            <div class="setting-group">
+                <h3 data-i18n="scan_config">Scan Configuration</h3>
+                <div class="setting-row">
+                    <label for="setScanInterval" data-i18n="interval_hours">Interval (hours)</label>
+                    <input type="number" id="setScanInterval" min="1" max="24" value="{{ config.SCAN_INTERVAL_HOURS }}" class="setting-input">
+                </div>
+                <div class="setting-row">
+                    <label for="setRangeStart" data-i18n="range_start">Announced from</label>
+                    <input type="date" id="setRangeStart" value="{{ config.SCAN_RANGE_START }}" class="setting-input">
+                </div>
+                <div class="setting-row">
+                    <label for="setRangeEnd" data-i18n="range_end">Announced to</label>
+                    <input type="date" id="setRangeEnd" value="{{ config.SCAN_RANGE_END }}" class="setting-input">
+                </div>
+                <div class="setting-row">
+                    <span class="setting-hint" data-i18n="range_hint">Blank = today. Keeps only programs with a known publish date in this range.</span>
+                </div>
+                <div class="setting-row">
+                    <button class="select-pill" id="fetchRangeBtn" type="button" data-i18n="fetch_range">Save &amp; fetch this range</button>
+                </div>
+            </div>
+            <div class="setting-group">
+                <h3 data-i18n="email_notifications">Email Notifications</h3>
+                <div class="setting-row">
+                    <span data-i18n="email_alerts">Email Alerts</span>
+                    <label class="toggle">
+                        <input type="checkbox" id="setEmailEnabled" {{ 'checked' if config.EMAIL_ENABLED else '' }}>
+                        <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                    </label>
+                </div>
+                <div class="setting-row">
+                    <label for="setEmailProvider" data-i18n="email_provider_label">Provider</label>
+                    <select id="setEmailProvider" class="setting-input">
+                        <option value="sendgrid" {{ 'selected' if config.EMAIL_PROVIDER == 'sendgrid' else '' }}>SendGrid</option>
+                        <option value="smtp" {{ 'selected' if config.EMAIL_PROVIDER == 'smtp' else '' }}>SMTP</option>
+                    </select>
+                </div>
+                <div class="setting-row">
+                    <label for="setEmailSender" data-i18n="sender_email">Sender Email</label>
+                    <input type="email" id="setEmailSender" value="{{ config.EMAIL_SENDER }}" placeholder="info@yourdomain.com" class="setting-input">
+                </div>
+                <div class="setting-row" data-provider-row="sendgrid">
+                    <label for="setSendgridKey" data-i18n="sendgrid_key">SendGrid API Key</label>
+                    <input type="password" id="setSendgridKey" placeholder="{{ 'Saved — blank keeps current' if config.SENDGRID_API_KEY else 'SG.xxxxx' }}" class="setting-input">
+                </div>
+                <div class="setting-row" data-provider-row="smtp">
+                    <label for="setSmtpServer" data-i18n="smtp_server">SMTP Server</label>
+                    <input type="text" id="setSmtpServer" value="{{ config.EMAIL_SMTP_SERVER }}" placeholder="mail.yourdomain.com" class="setting-input">
+                </div>
+                <div class="setting-row" data-provider-row="smtp">
+                    <label for="setSmtpPort" data-i18n="smtp_port">SMTP Port</label>
+                    <input type="number" id="setSmtpPort" value="{{ config.EMAIL_SMTP_PORT }}" placeholder="587 (TLS) or 465 (SSL)" class="setting-input">
+                </div>
+                <div class="setting-row" data-provider-row="smtp">
+                    <label for="setEmailPass" data-i18n="email_password">Mailbox Password</label>
+                    <input type="password" id="setEmailPass" placeholder="{{ 'Saved — blank keeps current' if config.EMAIL_PASSWORD else 'mailbox password' }}" class="setting-input">
+                </div>
+                <div class="setting-row">
+                    <label for="setEmailRecip" data-i18n="recipients">Recipients</label>
+                    <input type="text" id="setEmailRecip" value="{{ config.EMAIL_RECIPIENTS|join(', ') }}" placeholder="a@mail.com, b@mail.com" class="setting-input">
+                </div>
+                <div class="setting-row">
+                    <button class="select-pill" id="testEmailBtn" type="button" data-i18n="send_test">Send test</button>
+                </div>
+            </div>
+            <div class="setting-group">
+                <h3 data-i18n="desktop_notifications">Desktop Notifications</h3>
+                <div class="setting-row">
+                    <span data-i18n="desktop_alerts">Desktop Alerts</span>
+                    <label class="toggle">
+                        <input type="checkbox" id="setDesktopEnabled" {{ 'checked' if config.DESKTOP_NOTIFICATIONS_ENABLED else '' }}>
+                        <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                    </label>
+                </div>
+            </div>
+            <div class="setting-group">
+                <h3 data-i18n="monitored_keywords">Monitored Keywords</h3>
+                <div class="kw-chips">
+                    {% for kw in config.GRANT_KEYWORDS %}
+                    <span class="kw-chip">{{ kw }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        <div class="drawer-footer">
+            <button class="btn-save" id="saveSettingsBtn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                <span data-i18n="save_settings">Save Settings</span>
+            </button>
+        </div>
+    </aside>
+
+    <!-- ===== GRANT DETAIL MODAL ===== -->
+    <div class="modal-backdrop" id="modalBackdrop" aria-hidden="true"></div>
+    <div class="modal" id="grantModal" role="dialog" aria-label="Grant details" aria-hidden="true">
+        <div class="modal-header">
+            <span class="modal-cat" id="modalCat"></span>
+            <button class="modal-close" id="modalCloseBtn" aria-label="Close">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <h2 class="modal-title" id="modalTitle"></h2>
+        <div class="modal-meta">
+            <span class="modal-source" id="modalSource"></span>
+            <span class="modal-date" id="modalPublished"></span>
+            <span class="modal-date modal-deadline" id="modalDeadline"></span>
+            <span class="modal-date" id="modalDate"></span>
+            <span class="modal-date" id="modalLastSeen"></span>
+        </div>
+        <div class="modal-tags" id="modalTags"></div>
+        <p class="modal-desc" id="modalDesc"></p>
+
+        <!-- Detail Section (populated after fetch) -->
+        <div class="modal-details" id="modalDetails" style="display:none;">
+            <!-- Key Info Strip -->
+            <div class="detail-keyinfo" id="detailKeyinfo">
+                <div class="keyinfo-card keyinfo-deadline" id="detailDeadlineWrap">
+                    <div class="keyinfo-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    </div>
+                    <div class="keyinfo-body">
+                        <span class="keyinfo-label" data-i18n="deadline">Deadline</span>
+                        <span class="keyinfo-value" id="detailDeadline"></span>
+                    </div>
+                </div>
+                <div class="keyinfo-card keyinfo-funding" id="detailAmountWrap">
+                    <div class="keyinfo-icon">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                    </div>
+                    <div class="keyinfo-body">
+                        <span class="keyinfo-label" data-i18n="funding_amount">Funding Amount</span>
+                        <span class="keyinfo-value" id="detailAmount"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Structured Sections -->
+            <div class="detail-sections">
+                <!-- Summary -->
+                <div class="detail-section" id="detailSummaryWrap">
+                    <h4 class="detail-section-title">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                        <span data-i18n="summary">Summary</span>
+                    </h4>
+                    <div class="detail-section-body" id="detailSummary"></div>
+                </div>
+
+                <!-- Eligibility -->
+                <div class="detail-section" id="detailEligibilityWrap">
+                    <h4 class="detail-section-title">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                        <span data-i18n="who_can_apply">Who Can Apply</span>
+                    </h4>
+                    <div class="detail-section-body" id="detailEligibility"></div>
+                </div>
+
+                <!-- Contact -->
+                <div class="detail-section" id="detailContactWrap">
+                    <h4 class="detail-section-title">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                        <span data-i18n="contact">Contact</span>
+                    </h4>
+                    <div class="detail-section-body" id="detailContact"></div>
+                </div>
+
+                <!-- Full Description (collapsible) -->
+                <div class="detail-section" id="detailDescriptionWrap">
+                    <button class="detail-section-toggle" id="detailDescToggle" aria-expanded="false">
+                        <h4 class="detail-section-title">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                            <span data-i18n="full_page_content">Full Page Content</span>
+                        </h4>
+                        <svg class="detail-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div class="detail-section-collapse" id="detailDescBody">
+                        <div class="detail-section-body detail-longtext" id="detailDescription"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal-actions">
+            <button class="btn-fetch-details" id="modalFetchBtn" onclick="fetchGrantDetails()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <span id="fetchBtnText" data-i18n="fetch_details">Fetch Details</span>
+            </button>
+            <a href="#" target="_blank" rel="noopener noreferrer" class="btn-visit" id="modalVisitBtn">
+                <span data-i18n="visit_program">Visit Program</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            </a>
+            <a href="#" target="_blank" rel="noopener noreferrer" class="btn-visit btn-apply" id="modalApplyBtn" style="display:none;">
+                <span data-i18n="apply">Apply</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            </a>
+        </div>
+    </div>
+
+    <!-- ===== CONFIRM DIALOG ===== -->
+    <div class="confirm-backdrop" id="confirmBackdrop" aria-hidden="true"></div>
+    <div class="confirm-dialog" id="confirmDialog" role="alertdialog" aria-label="Confirmation" aria-hidden="true">
+        <p id="confirmMsg"></p>
+        <div class="confirm-actions">
+            <button class="confirm-cancel" id="confirmCancelBtn" data-i18n="cancel">Cancel</button>
+            <button class="confirm-proceed" id="confirmProceedBtn" data-i18n="confirm">Confirm</button>
+        </div>
+    </div>
+
+    <!-- ===== TOP NAVIGATION ===== -->
+    <header class="topnav">
+        <div class="topnav-inner">
+            <div class="brand">
+                <div class="brand-mark">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="url(#brandGrad)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <defs><linearGradient id="brandGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#58a6ff"/><stop offset="100%" stop-color="#3fb950"/></linearGradient></defs>
+                        <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+                    </svg>
+                </div>
+                <div class="brand-text">
+                    <span class="brand-name">Grants Observatory</span>
+                    <span class="brand-status">
+                        <span class="live-dot" aria-hidden="true"></span>
+                        <span id="statusText" data-i18n="monitoring_sources" data-i18n-param="{{ stats.total_sites }}">Monitoring {{ stats.total_sites }} sources</span>
+                    </span>
+                </div>
+            </div>
+
+            <nav class="tab-nav" role="tablist" aria-label="Dashboard sections" id="tabNav">
+                <button class="tab-btn active" role="tab" aria-selected="true" aria-controls="view-grants" id="tab-grants" data-tab="grants">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    <span data-i18n="programs">Programs</span>
+                    {% if stats.pending_grants > 0 %}<span class="tab-badge" id="tabBadge">{{ stats.pending_grants }}</span>{% endif %}
+                </button>
+                <button class="tab-btn" role="tab" aria-selected="false" aria-controls="view-sites" id="tab-sites" data-tab="sites" tabindex="-1">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                    <span data-i18n="sources">Sources</span>
+                    <span class="tab-count">{{ stats.total_sites }}</span>
+                </button>
+                <button class="tab-btn" role="tab" aria-selected="false" aria-controls="view-history" id="tab-history" data-tab="history" tabindex="-1">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                    <span data-i18n="activity">Activity</span>
+                </button>
+            </nav>
+
+            <div class="topnav-actions">
+                <button class="lang-btn" id="langToggleBtn" aria-label="Switch language" title="TR / EN">
+                    <span class="lang-flag" id="langFlag">TR</span>
+                </button>
+                <button class="icon-btn" id="settingsBtn" aria-label="Open settings">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                </button>
+                <div class="countdown-pill" title="Time until next scan">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    <span id="countdownText">--:--:--</span>
+                </div>
+                <button class="scan-btn" id="scanBtn">
+                    <span class="scan-btn-bg" aria-hidden="true"></span>
+                    <svg class="scan-btn-icon" id="scanIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                    <span class="scan-btn-text" id="scanText" data-i18n="scan_now">Scan Now</span>
+                </button>
+            </div>
+        </div>
+        <div class="scan-rail" id="scanRail" role="progressbar" aria-label="Scan progress"><div class="scan-rail-fill"></div></div>
+    </header>
+
+    <!-- ===== STATS RIBBON ===== -->
+    <section class="stats-ribbon" aria-label="Quick statistics">
+        <div class="stats-inner">
+            <div class="stat" data-tip="Active monitoring sources">
+                <span class="stat-val counter" id="statSources" data-target="{{ stats.total_sites }}">0</span>
+                <span class="stat-key" data-i18n="sources">Sources</span>
+            </div>
+            <div class="stat-div" aria-hidden="true"></div>
+            <div class="stat stat-hero" data-tip="Pending review">
+                <span class="stat-val counter accent-g" id="statPending" data-target="{{ stats.pending_grants }}">0</span>
+                <span class="stat-key" data-i18n="pending">Pending</span>
+                {% if stats.pending_grants > 0 %}<span class="stat-dot-live" aria-hidden="true"></span>{% endif %}
+            </div>
+            <div class="stat-div" aria-hidden="true"></div>
+            <div class="stat" data-tip="Accepted grants">
+                <span class="stat-val counter" id="statAccepted" data-target="{{ stats.accepted_grants }}">0</span>
+                <span class="stat-key" data-i18n="accepted">Accepted</span>
+            </div>
+            <div class="stat-div" aria-hidden="true"></div>
+            <div class="stat" data-tip="Rejected grants">
+                <span class="stat-val counter" id="statRejected" data-target="{{ stats.rejected_grants }}">0</span>
+                <span class="stat-key" data-i18n="rejected">Rejected</span>
+            </div>
+            <div class="stat-div" aria-hidden="true"></div>
+            <div class="stat" data-tip="Last completed scan">
+                <span class="stat-val stat-time" id="statLastScan">{% if stats.last_scan and stats.last_scan.finished_at %}{{ stats.last_scan.finished_at[11:16] }}{% else %}--:--{% endif %}</span>
+                <span class="stat-key" data-i18n="last_scan">Last Scan</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== MAIN CONTENT ===== -->
+    <main id="main" class="content">
+
+        <!-- ======================== GRANTS VIEW ======================== -->
+        <section id="view-grants" class="view active" role="tabpanel" aria-labelledby="tab-grants">
+
+            <!-- Sub-tabs: Inbox / Accepted / Rejected -->
+            <div class="sub-tabs" id="grantSubTabs">
+                <button class="sub-tab active" data-subtab="inbox">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+                    <span data-i18n="inbox">Inbox</span>
+                    {% if stats.pending_grants > 0 %}<span class="sub-tab-badge" id="inboxBadge">{{ stats.pending_grants }}</span>{% endif %}
+                </button>
+                <button class="sub-tab" data-subtab="accepted">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                    <span data-i18n="accepted">Accepted</span>
+                    <span class="sub-tab-count">{{ stats.accepted_grants }}</span>
+                </button>
+                <button class="sub-tab" data-subtab="rejected">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    <span data-i18n="rejected">Rejected</span>
+                    <span class="sub-tab-count">{{ stats.rejected_grants }}</span>
+                </button>
+            </div>
+
+            <div class="toolbar">
+                <div class="search-box">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <label for="grantSearch" class="sr-only">Search programs</label>
+                    <input type="text" id="grantSearch" placeholder="Search programs..." data-i18n-placeholder="search_programs">
+                </div>
+                <label for="catFilter" class="sr-only">Filter by category</label>
+                <select id="catFilter" class="select-pill" aria-label="Filter by category">
+                    <option value="" data-i18n="all_categories">All Categories</option>
+                    <option value="Bakanlik">Bakanlik</option>
+                    <option value="Kamu Kurumu">Kamu Kurumu</option>
+                    <option value="Kalkinma Ajansi">Kalkinma Ajansi</option>
+                    <option value="AB/Uluslararasi">AB/Uluslararasi</option>
+                    <option value="NGO/Vakif">NGO/Vakif</option>
+                    <option value="Agregator">Agregator</option>
+                    <option value="Buyukelcilik">Buyukelcilik</option>
+                    <option value="Kamu Bankasi">Kamu Bankasi</option>
+                </select>
+                <label for="sourceFilter" class="sr-only">Filter by source</label>
+                <select id="sourceFilter" class="select-pill" aria-label="Filter by source">
+                    <option value="" data-i18n="all_sources">All Sources</option>
+                </select>
+                <label for="releaseFilter" class="sr-only">Filter by release date</label>
+                <select id="releaseFilter" class="select-pill" aria-label="Filter by release date">
+                    <option value="" data-i18n="all_releases">All releases</option>
+                    <option value="1" data-i18n="last_1_month">Last 1 month</option>
+                    <option value="3" data-i18n="last_3_months">Last 3 months</option>
+                    <option value="6" data-i18n="last_6_months">Last 6 months</option>
+                    <option value="12" data-i18n="last_12_months">Last 12 months</option>
+                    <option value="custom" data-i18n="custom_range">Custom range…</option>
+                </select>
+                <span class="release-custom" id="releaseCustom" style="display:none;">
+                    <input type="date" id="releaseStart" class="select-pill" aria-label="Released from">
+                    <input type="date" id="releaseEnd" class="select-pill" aria-label="Released to">
+                </span>
+                <label for="sortFilter" class="sr-only">Sort grants</label>
+                <select id="sortFilter" class="select-pill" aria-label="Sort grants">
+                    <option value="date-desc" data-i18n="newest_first">Newest First</option>
+                    <option value="date-asc" data-i18n="oldest_first">Oldest First</option>
+                    <option value="deadline" data-i18n="deadline_soon">Deadline soonest</option>
+                    <option value="source" data-i18n="by_source">By Source</option>
+                    <option value="category" data-i18n="by_category">By Category</option>
+                </select>
+                <label class="pill-toggle" title="Hide programs whose deadline has passed">
+                    <input type="checkbox" id="hideExpired" checked>
+                    <span data-i18n="hide_expired">Hide expired</span>
+                </label>
+                <button type="button" id="clearFilters" class="select-pill" data-i18n="clear_filters">Clear</button>
+                <button type="button" id="sendTeamBtn" class="select-pill send-team-btn" title="Email accepted programs to the team">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 4h16v16H4z" fill="none"/><polyline points="22,6 12,13 2,6"/><rect x="2" y="4" width="20" height="16" rx="2"/></svg>
+                    <span data-i18n="send_to_team">Send accepted to team</span>
+                </button>
+            </div>
+
+            <!-- Bulk action bar (appears when programs are selected) -->
+            <div class="bulk-bar" id="bulkBar" style="display:none;">
+                <label class="bulk-selectall">
+                    <input type="checkbox" id="selectAllCheck" aria-label="Select all visible">
+                    <span data-i18n="select_all">Select all</span>
+                </label>
+                <span class="bulk-count" id="bulkCount">0</span>
+                <div class="bulk-actions">
+                    <button class="btn-accept" id="bulkAcceptBtn" data-bulk="accepted"><span data-i18n="accept">Accept</span></button>
+                    <button class="btn-reject" id="bulkRejectBtn" data-bulk="rejected"><span data-i18n="reject">Reject</span></button>
+                    <button class="btn-restore" id="bulkRestoreBtn" data-bulk="pending"><span data-i18n="restore">Restore</span></button>
+                    <button class="select-pill" id="bulkClearBtn" data-i18n="clear_selection">Clear selection</button>
+                </div>
+            </div>
+
+            <!-- Category Donut Chart (accepted only) -->
+            {% if accepted_grants %}
+            <div class="category-bar" id="donutWrap" style="display:none;">
+                <canvas id="donutCanvas" width="140" height="140" aria-label="Grant distribution by category" role="img"></canvas>
+                <div class="cat-legend" id="catLegend"></div>
+            </div>
+            {% endif %}
+
+            {# Grant card macro lives in _macros.html and is shared with /api/grants/cards #}
+
+            <!-- ===== INBOX (Pending) ===== -->
+            <div class="grants-panel active" id="panel-inbox">
+                <div class="grants-table-head" aria-hidden="true">
+                    <span class="th th-select"></span>
+                    <span class="th th-cat" data-i18n="category">Category</span>
+                    <span class="th th-title" data-i18n="program">Program</span>
+                    <span class="th th-source" data-i18n="source">Source</span>
+                    <span class="th th-date" data-i18n="date">Date</span>
+                    <span class="th th-deadline" data-i18n="deadline">Deadline</span>
+                    <span class="th th-actions"></span>
+                </div>
+                <div class="grants-grid" id="grantsGrid" data-total="{{ pending_total }}">
+                    {% if pending_grants %}
+                        {% for grant in pending_grants %}
+                            {{ grant_card(grant, 'inbox', loop.index0, today) }}
+                        {% endfor %}
+                    {% else %}
+                        <div class="empty-hero">
+                            <div class="empty-radar" aria-hidden="true">
+                                <div class="radar-ring r1"></div>
+                                <div class="radar-ring r2"></div>
+                                <div class="radar-ring r3"></div>
+                                <div class="radar-sweep"></div>
+                                <div class="radar-center"></div>
+                            </div>
+                            <h2 data-i18n="inbox_empty">Inbox is empty</h2>
+                            <p data-i18n="inbox_empty_desc">All programs have been reviewed. Run a new scan to discover more.</p>
+                            <button class="scan-btn large" id="firstScanBtn">
+                                <span class="scan-btn-bg" aria-hidden="true"></span>
+                                <svg class="scan-btn-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                                <span class="scan-btn-text" data-i18n="scan_now">Scan Now</span>
+                            </button>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- ===== ACCEPTED ===== -->
+            <div class="grants-panel" id="panel-accepted" style="display:none;">
+                <div class="grants-table-head" aria-hidden="true">
+                    <span class="th th-select"></span>
+                    <span class="th th-cat" data-i18n="category">Category</span>
+                    <span class="th th-title" data-i18n="program">Program</span>
+                    <span class="th th-source" data-i18n="source">Source</span>
+                    <span class="th th-date" data-i18n="date">Date</span>
+                    <span class="th th-deadline" data-i18n="deadline">Deadline</span>
+                    <span class="th th-actions"></span>
+                </div>
+                <div class="grants-grid" id="acceptedGrid" data-total="{{ accepted_total }}">
+                    {% if accepted_grants %}
+                        {% for grant in accepted_grants %}
+                            {{ grant_card(grant, 'accepted', loop.index0, today) }}
+                        {% endfor %}
+                    {% else %}
+                        <div class="empty-hero small">
+                            <h2 data-i18n="no_accepted">No accepted programs yet</h2>
+                            <p data-i18n="no_accepted_desc">Accept programs from the Inbox to save them here.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- ===== REJECTED ===== -->
+            <div class="grants-panel" id="panel-rejected" style="display:none;">
+                <div class="grants-table-head" aria-hidden="true">
+                    <span class="th th-select"></span>
+                    <span class="th th-cat" data-i18n="category">Category</span>
+                    <span class="th th-title" data-i18n="program">Program</span>
+                    <span class="th th-source" data-i18n="source">Source</span>
+                    <span class="th th-date" data-i18n="date">Date</span>
+                    <span class="th th-deadline" data-i18n="deadline">Deadline</span>
+                    <span class="th th-actions"></span>
+                </div>
+                <div class="grants-grid" id="rejectedGrid" data-total="{{ rejected_total }}">
+                    {% if rejected_grants %}
+                        {% for grant in rejected_grants %}
+                            {{ grant_card(grant, 'rejected', loop.index0, today) }}
+                        {% endfor %}
+                    {% else %}
+                        <div class="empty-hero small">
+                            <h2 data-i18n="no_rejected">No rejected programs</h2>
+                            <p data-i18n="no_rejected_desc">Programs you reject will appear here.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- No filter results -->
+            <div class="empty-hero small" id="noResults" style="display:none;">
+                <h2 data-i18n="no_results">No programs match your filters</h2>
+                <p data-i18n="no_results_desc">Try clearing or changing the filters above.</p>
+            </div>
+
+            <!-- Shared load-more (drives the active sub-tab) -->
+            <div class="load-more-wrap" id="loadMoreWrap" style="display:none;">
+                <button class="load-more-btn" id="loadMoreBtn">
+                    <span data-i18n="show_more">Show More</span>
+                    <span class="load-more-count" id="loadMoreCount"></span>
+                </button>
+            </div>
+        </section>
+
+        <!-- ======================== SITES VIEW ======================== -->
+        <section id="view-sites" class="view" role="tabpanel" aria-labelledby="tab-sites" hidden>
+            <div class="toolbar">
+                <div class="search-box">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <label for="siteSearch" class="sr-only">Search sources</label>
+                    <input type="text" id="siteSearch" placeholder="Search sources..." data-i18n-placeholder="search_sources">
+                </div>
+                <label for="siteCatFilter" class="sr-only">Filter sites by category</label>
+                <select id="siteCatFilter" class="select-pill" aria-label="Filter sites by category">
+                    <option value="">All Categories</option>
+                    <option value="Bakanlik">Bakanlik</option>
+                    <option value="Kamu Kurumu">Kamu Kurumu</option>
+                    <option value="Kalkinma Ajansi">Kalkinma Ajansi</option>
+                    <option value="AB/Uluslararasi">AB/Uluslararasi</option>
+                    <option value="NGO/Vakif">NGO/Vakif</option>
+                    <option value="Agregator">Agregator</option>
+                    <option value="Buyukelcilik">Buyukelcilik</option>
+                    <option value="Kamu Bankasi">Kamu Bankasi</option>
+                </select>
+            </div>
+
+            <!-- Sites category overview -->
+            <div class="sites-summary" aria-label="Sites by category">
+                {% for cat, count in site_cat_counts.items() %}
+                <div class="site-cat-chip cat-{{ cat|lower|replace('/', '-')|replace(' ', '-') }}">
+                    <span class="scc-count">{{ count }}</span>
+                    <span class="scc-name">{{ cat }}</span>
+                </div>
+                {% endfor %}
+            </div>
+
+            <div class="sites-grid" id="sitesGrid">
+                {% for site in sites %}
+                <div class="site-card" data-name="{{ site.name|lower }}" data-category="{{ site.category }}" style="--i:{{ loop.index0 }}">
+                    <div class="sc-top">
+                        <div class="sc-status {{ site.last_status or 'pending' }}">
+                            {% if site.last_status == 'ok' %}
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+                            {% elif site.last_status == 'error' %}
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            {% else %}
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="1"/></svg>
+                            {% endif %}
+                        </div>
+                        <span class="sc-cat cat-{{ site.category|lower|replace('/', '-')|replace(' ', '-') }}">{{ site.category }}</span>
+                    </div>
+                    <h4 class="sc-name">{{ site.name }}</h4>
+                    <div class="sc-url">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                        <a href="{{ site.url }}" target="_blank" rel="noopener noreferrer">{{ site.url|truncate(40, True) }}</a>
+                    </div>
+                    <div class="sc-meta">
+                        <span class="sc-checked">
+                            {% if site.last_checked %}Checked {{ site.last_checked[5:16] }}{% else %}Never checked{% endif %}
+                        </span>
+                        {% if site.last_error %}<span class="sc-error" title="{{ site.last_error }}">{{ site.last_error[:40] }}</span>{% endif %}
+                    </div>
+                    <div class="sc-toggle-row">
+                        <span class="sc-toggle-label">{{ 'Active' if site.is_active else 'Paused' }}</span>
+                        <label class="toggle">
+                            <input type="checkbox" {{ 'checked' if site.is_active else '' }} data-site-id="{{ site.id }}" role="switch" aria-checked="{{ 'true' if site.is_active else 'false' }}">
+                            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                        </label>
+                    </div>
+                    <div class="sc-selector-row">
+                        <input type="text" class="sc-selector-input" data-site-id="{{ site.id }}" value="{{ site.css_selector or '' }}" placeholder="CSS selector (optional)" data-i18n-placeholder="css_selector_ph" aria-label="CSS selector to scope scanning">
+                        <button class="sc-selector-save" data-site-id="{{ site.id }}" data-i18n="save">Save</button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <!-- ======================== HISTORY VIEW ======================== -->
+        <section id="view-history" class="view" role="tabpanel" aria-labelledby="tab-history" hidden>
+            {% if scan_history %}
+            <div class="timeline">
+                {% for scan in scan_history %}
+                <div class="tl-item {{ scan.status }}" style="--i:{{ loop.index0 }}">
+                    <div class="tl-marker" aria-hidden="true">
+                        {% if scan.status == 'completed' %}
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+                        {% elif scan.status == 'running' %}
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        {% else %}
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                        {% endif %}
+                    </div>
+                    <div class="tl-card">
+                        <div class="tl-head">
+                            <time class="tl-time">{{ scan.started_at[0:16] if scan.started_at else '' }}</time>
+                            <span class="tl-status-badge {{ scan.status }}">{{ scan.status }}</span>
+                        </div>
+                        <div class="tl-stats">
+                            <div class="tl-stat">
+                                <span class="tl-stat-val">{{ scan.sites_scanned }}</span>
+                                <span class="tl-stat-key" data-i18n="sites_scanned">Sites Scanned</span>
+                            </div>
+                            <div class="tl-stat highlight">
+                                <span class="tl-stat-val">+{{ scan.new_grants_found }}</span>
+                                <span class="tl-stat-key" data-i18n="new_grants">New Grants</span>
+                            </div>
+                            <div class="tl-stat {{ 'warn' if scan.errors > 0 else '' }}">
+                                <span class="tl-stat-val">{{ scan.errors }}</span>
+                                <span class="tl-stat-key" data-i18n="errors">Errors</span>
+                            </div>
+                            {% if scan.finished_at and scan.started_at %}
+                            <div class="tl-stat">
+                                <span class="tl-stat-val">{{ scan.finished_at[11:19] }}</span>
+                                <span class="tl-stat-key" data-i18n="finished">Finished</span>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-hero small">
+                <div class="empty-radar small-radar" aria-hidden="true">
+                    <div class="radar-ring r1"></div>
+                    <div class="radar-ring r2"></div>
+                    <div class="radar-sweep"></div>
+                    <div class="radar-center"></div>
+                </div>
+                <h2 data-i18n="no_activity">No activity recorded</h2>
+                <p data-i18n="run_first_scan">Run your first scan to start building a history.</p>
+            </div>
+            {% endif %}
+        </section>
+
+    </main>
+
+    <script>
+    /* ===================================================================
+       GRANTS OBSERVATORY — Enhanced Frontend
+       =================================================================== */
+
+    // ===== CATEGORY DATA FOR DONUT =====
+    const catData = {{ cat_counts | tojson }};
+    const CAT_COLORS = {
+        'Bakanlik':'#bc8cff','Kamu Kurumu':'#39d2c0','Kalkinma Ajansi':'#58a6ff',
+        'AB/Uluslararasi':'#d29922','NGO/Vakif':'#3fb950','Agregator':'#fb923c',
+        'Buyukelcilik':'#f778ba','Kamu Bankasi':'#818cf8','Sosyal Medya':'#94a3b8','Diger':'#484f58'
+    };
+
+    // ===== i18n TRANSLATIONS =====
+    const TRANSLATIONS = {
+        en: {
+            // Nav & Brand
+            monitoring_sources: 'Monitoring {0} sources',
+            programs: 'Programs',
+            sources: 'Sources',
+            activity: 'Activity',
+            scan_now: 'Scan Now',
+            // Stats
+            new_grants: 'New Grants',
+            total_found: 'Total Found',
+            errors: 'Errors',
+            last_scan: 'Last Scan',
+            // Toolbar
+            search_programs: 'Search programs...',
+            search_sources: 'Search sources...',
+            all_categories: 'All Categories',
+            all_sources: 'All Sources',
+            all_releases: 'All releases',
+            last_1_month: 'Last 1 month',
+            last_3_months: 'Last 3 months',
+            last_6_months: 'Last 6 months',
+            last_12_months: 'Last 12 months',
+            custom_range: 'Custom range…',
+            deadline_soon: 'Deadline soonest',
+            hide_expired: 'Hide expired',
+            days_left: '{0} days left',
+            expired: 'expired',
+            deadline_today: 'due today',
+            clear_filters: 'Clear',
+            send_to_team: 'Send accepted to team',
+            confirm_send_team: 'Email all accepted programs to the team?',
+            toast_team_sent: 'Sent {0} program(s) to the team',
+            last_seen: 'Last Seen',
+            published: 'Published',
+            remaining: 'remaining',
+            select_all: 'Select all',
+            clear_selection: 'Clear selection',
+            no_results: 'No programs match your filters',
+            no_results_desc: 'Try clearing or changing the filters above.',
+            toast_bulk_done: '{0} program(s) updated',
+            save: 'Save',
+            css_selector_ph: 'CSS selector (optional)',
+            toast_selector_saved: 'Selector saved (applies next scan)',
+            found_on: 'Found',
+            email_provider_label: 'Provider',
+            sender_email: 'Sender Email',
+            range_start: 'Announced from',
+            range_end: 'Announced to',
+            range_hint: 'Blank = today. Keeps only programs with a known publish date in this range.',
+            fetch_range: 'Save & fetch this range',
+            fetch_range_confirm: 'Fetch programs announced in {0}? This clears the current pending list and re-scans all sites.',
+            sendgrid_key: 'SendGrid API Key',
+            smtp_server: 'SMTP Server',
+            smtp_port: 'SMTP Port',
+            email_password: 'Mailbox Password',
+            send_test: 'Send test',
+            test_sent: 'Test email sent to {0}',
+            test_no_recipient: 'Add a recipient or sender first',
+            newest_first: 'Newest First',
+            oldest_first: 'Oldest First',
+            by_source: 'By Source',
+            by_category: 'By Category',
+            unread_only: 'Unread Only',
+            mark_all_read: 'Mark All Read',
+            show_more: 'Show More',
+            // Cards
+            visit_program: 'Visit Program',
+            // Modal
+            fetch_details: 'Fetch Details',
+            refresh_details: 'Refresh Details',
+            fetching: 'Fetching...',
+            retry_fetch: 'Retry Fetch',
+            apply: 'Apply',
+            deadline: 'Deadline',
+            funding_amount: 'Funding Amount',
+            summary: 'Summary',
+            who_can_apply: 'Who Can Apply',
+            contact: 'Contact',
+            full_page_content: 'Full Page Content',
+            // Settings
+            settings: 'Settings',
+            scan_config: 'Scan Configuration',
+            interval_hours: 'Interval (hours)',
+            email_notifications: 'Email Notifications',
+            email_alerts: 'Email Alerts',
+            sender_gmail: 'Sender Gmail',
+            app_password: 'App Password',
+            recipients: 'Recipients',
+            desktop_notifications: 'Desktop Notifications',
+            desktop_alerts: 'Desktop Alerts',
+            monitored_keywords: 'Monitored Keywords',
+            save_settings: 'Save Settings',
+            // Confirm
+            cancel: 'Cancel',
+            confirm: 'Confirm',
+            // Empty states
+            no_programs_yet: 'No programs discovered yet',
+            launch_scan_desc: 'Launch a scan to sweep {0} sources for R&D grants, funding calls, and support programs.',
+            start_first_scan: 'Start First Scan',
+            no_activity: 'No activity recorded',
+            run_first_scan: 'Run your first scan to start building a history.',
+            // History
+            sites_scanned: 'Sites Scanned',
+            finished: 'Finished',
+            // Toasts
+            toast_scan_complete: 'Scan complete! {0} new grants.',
+            toast_settings_saved: 'Settings saved successfully',
+            toast_all_read: 'All marked as read',
+            toast_details_ok: 'Grant details fetched successfully',
+            toast_details_fail: 'Failed to fetch grant details',
+            toast_scan_running: 'Scan already running',
+            toast_scanning: 'Scanning all sources...',
+            toast_activated: 'Source activated',
+            toast_paused: 'Source paused',
+            toast_accepted: 'Program accepted',
+            toast_rejected: 'Program rejected',
+            toast_restored: 'Program restored to inbox',
+            // Site cards
+            active: 'Active',
+            paused: 'Paused',
+            never_checked: 'Never checked',
+            // Triage
+            inbox: 'Inbox',
+            pending: 'Pending',
+            accepted: 'Accepted',
+            rejected: 'Rejected',
+            accept: 'Accept',
+            reject: 'Reject',
+            restore: 'Restore',
+            inbox_empty: 'Inbox is empty',
+            inbox_empty_desc: 'All programs have been reviewed. Run a new scan to discover more.',
+            no_accepted: 'No accepted programs yet',
+            no_accepted_desc: 'Accept programs from the Inbox to save them here.',
+            no_rejected: 'No rejected programs',
+            no_rejected_desc: 'Programs you reject will appear here.',
+        },
+        tr: {
+            monitoring_sources: '{0} kaynak izleniyor',
+            programs: 'Programlar',
+            sources: 'Kaynaklar',
+            activity: 'Aktivite',
+            scan_now: 'Tara',
+            new_grants: 'Yeni Hibeler',
+            total_found: 'Toplam Bulunan',
+            errors: 'Hatalar',
+            last_scan: 'Son Tarama',
+            search_programs: 'Program ara...',
+            search_sources: 'Kaynak ara...',
+            all_categories: 'Tüm Kategoriler',
+            all_sources: 'Tüm Kaynaklar',
+            all_releases: 'Tüm yayınlar',
+            last_1_month: 'Son 1 ay',
+            last_3_months: 'Son 3 ay',
+            last_6_months: 'Son 6 ay',
+            last_12_months: 'Son 12 ay',
+            custom_range: 'Özel aralık…',
+            deadline_soon: 'Son başvuruya göre',
+            hide_expired: 'Süresi geçeni gizle',
+            days_left: '{0} gün kaldı',
+            expired: 'süresi doldu',
+            deadline_today: 'bugün son gün',
+            clear_filters: 'Temizle',
+            send_to_team: 'Kabul edilenleri ekibe gönder',
+            confirm_send_team: 'Tüm kabul edilen programlar ekibe e-posta ile gönderilsin mi?',
+            toast_team_sent: '{0} program ekibe gönderildi',
+            last_seen: 'Son Görülme',
+            published: 'Yayınlanma',
+            remaining: 'kaldı',
+            select_all: 'Tümünü seç',
+            clear_selection: 'Seçimi temizle',
+            no_results: 'Filtrelerinize uyan program yok',
+            no_results_desc: 'Yukarıdaki filtreleri temizleyin veya değiştirin.',
+            toast_bulk_done: '{0} program güncellendi',
+            save: 'Kaydet',
+            css_selector_ph: 'CSS seçici (opsiyonel)',
+            toast_selector_saved: 'Seçici kaydedildi (sonraki taramada geçerli)',
+            found_on: 'Bulundu',
+            email_provider_label: 'Sağlayıcı',
+            sender_email: 'Gönderen E-posta',
+            range_start: 'Başlangıç (duyuru)',
+            range_end: 'Bitiş (duyuru)',
+            range_hint: 'Boş = bugün. Yalnızca bu aralıkta bilinen yayın tarihine sahip programları tutar.',
+            fetch_range: 'Kaydet ve bu aralığı getir',
+            fetch_range_confirm: '{0} aralığında duyurulan programlar getirilsin mi? Bu, mevcut bekleyen listeyi temizler ve tüm siteleri yeniden tarar.',
+            sendgrid_key: 'SendGrid API Anahtarı',
+            smtp_server: 'SMTP Sunucusu',
+            smtp_port: 'SMTP Portu',
+            email_password: 'Posta Kutusu Şifresi',
+            send_test: 'Test gönder',
+            test_sent: '{0} adresine test e-postası gönderildi',
+            test_no_recipient: 'Önce bir alıcı veya gönderen ekleyin',
+            newest_first: 'En Yeni',
+            oldest_first: 'En Eski',
+            by_source: 'Kaynağa Göre',
+            by_category: 'Kategoriye Göre',
+            unread_only: 'Sadece Okunmamış',
+            mark_all_read: 'Tümünü Okundu İşaretle',
+            show_more: 'Daha Fazla',
+            visit_program: 'Programa Git',
+            fetch_details: 'Detayları Getir',
+            refresh_details: 'Detayları Yenile',
+            fetching: 'Getiriliyor...',
+            retry_fetch: 'Tekrar Dene',
+            apply: 'Başvur',
+            deadline: 'Son Başvuru',
+            funding_amount: 'Destek Miktarı',
+            summary: 'Özet',
+            who_can_apply: 'Kimler Başvurabilir',
+            contact: 'İletişim',
+            full_page_content: 'Tam Sayfa İçeriği',
+            settings: 'Ayarlar',
+            scan_config: 'Tarama Yapılandırması',
+            interval_hours: 'Aralık (saat)',
+            email_notifications: 'E-posta Bildirimleri',
+            email_alerts: 'E-posta Uyarıları',
+            sender_gmail: 'Gönderici Gmail',
+            app_password: 'Uygulama Şifresi',
+            recipients: 'Alıcılar',
+            desktop_notifications: 'Masaüstü Bildirimleri',
+            desktop_alerts: 'Masaüstü Uyarıları',
+            monitored_keywords: 'İzlenen Anahtar Kelimeler',
+            save_settings: 'Ayarları Kaydet',
+            cancel: 'İptal',
+            confirm: 'Onayla',
+            no_programs_yet: 'Henüz program bulunamadı',
+            launch_scan_desc: '{0} kaynağı Ar-Ge hibeleri, fonlama çağrıları ve destek programları için taramak için bir tarama başlatın.',
+            start_first_scan: 'İlk Taramayı Başlat',
+            no_activity: 'Henüz aktivite yok',
+            run_first_scan: 'Geçmiş oluşturmak için ilk taramayı çalıştırın.',
+            sites_scanned: 'Taranan Site',
+            finished: 'Bitti',
+            toast_scan_complete: 'Tarama tamamlandı! {0} yeni hibe.',
+            toast_settings_saved: 'Ayarlar başarıyla kaydedildi',
+            toast_all_read: 'Tümü okundu olarak işaretlendi',
+            toast_details_ok: 'Hibe detayları başarıyla getirildi',
+            toast_details_fail: 'Hibe detayları getirilemedi',
+            toast_scan_running: 'Tarama zaten çalışıyor',
+            toast_scanning: 'Tüm kaynaklar taranıyor...',
+            toast_activated: 'Kaynak etkinleştirildi',
+            toast_paused: 'Kaynak duraklatıldı',
+            toast_accepted: 'Program kabul edildi',
+            toast_rejected: 'Program reddedildi',
+            toast_restored: 'Program gelen kutusuna geri alındı',
+            active: 'Aktif',
+            paused: 'Duraklatıldı',
+            never_checked: 'Henüz kontrol edilmedi',
+            inbox: 'Gelen Kutusu',
+            pending: 'Bekleyen',
+            accepted: 'Kabul Edilenler',
+            rejected: 'Reddedilenler',
+            accept: 'Kabul Et',
+            reject: 'Reddet',
+            restore: 'Geri Al',
+            inbox_empty: 'Gelen kutusu boş',
+            inbox_empty_desc: 'Tüm programlar incelendi. Daha fazla keşfetmek için yeni bir tarama çalıştırın.',
+            no_accepted: 'Henüz kabul edilen program yok',
+            no_accepted_desc: 'Gelen kutusundan programları kabul ederek buraya kaydedin.',
+            no_rejected: 'Reddedilen program yok',
+            no_rejected_desc: 'Reddettiğiniz programlar burada görünecek.',
+        }
+    };
+
+    let currentLang = localStorage.getItem('grants_lang') || 'en';
+
+    function t(key, ...params) {
+        let str = (TRANSLATIONS[currentLang] && TRANSLATIONS[currentLang][key]) || TRANSLATIONS.en[key] || key;
+        params.forEach((p, i) => { str = str.replace('{' + i + '}', p); });
+        return str;
+    }
+
+    function applyLanguage() {
+        document.documentElement.lang = currentLang === 'tr' ? 'tr' : 'en';
+        document.getElementById('langFlag').textContent = currentLang.toUpperCase();
+
+        // Translate data-i18n elements
+        document.querySelectorAll('[data-i18n]').forEach(el => {
+            const key = el.dataset.i18n;
+            const param = el.dataset.i18nParam || '';
+            el.textContent = t(key, param);
+        });
+
+        // Translate data-i18n-placeholder elements
+        document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+            el.placeholder = t(el.dataset.i18nPlaceholder);
+        });
+
+        if (typeof annotateDeadlines === 'function') annotateDeadlines();
+    }
+
+    function toggleLanguage() {
+        currentLang = currentLang === 'en' ? 'tr' : 'en';
+        localStorage.setItem('grants_lang', currentLang);
+        applyLanguage();
+    }
+
+    // ===== UTILITY: Safe fetch with loading & error =====
+    async function safeFetch(url, opts = {}) {
+        try {
+            const r = await fetch(url, opts);
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return await r.json();
+        } catch (e) {
+            toast('Request failed: ' + e.message, 'error');
+            throw e;
+        }
+    }
+
+    // ===== VIEW SWITCHING (ARIA-compliant) =====
+    function switchView(name) {
+        const tabs = document.querySelectorAll('[role="tab"]');
+        const panels = document.querySelectorAll('[role="tabpanel"]');
+        tabs.forEach(t => { t.classList.remove('active'); t.setAttribute('aria-selected','false'); t.tabIndex = -1; });
+        panels.forEach(p => { p.classList.remove('active'); p.hidden = true; });
+        const tab = document.getElementById('tab-' + name);
+        const panel = document.getElementById('view-' + name);
+        tab.classList.add('active'); tab.setAttribute('aria-selected','true'); tab.tabIndex = 0;
+        panel.classList.add('active'); panel.hidden = false;
+    }
+
+    // Keyboard nav for tabs (arrow keys)
+    document.getElementById('tabNav').addEventListener('keydown', function(e) {
+        const tabs = [...this.querySelectorAll('[role="tab"]')];
+        const idx = tabs.indexOf(document.activeElement);
+        if (idx < 0) return;
+        let next = idx;
+        if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { next = (idx + 1) % tabs.length; e.preventDefault(); }
+        else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { next = (idx - 1 + tabs.length) % tabs.length; e.preventDefault(); }
+        else if (e.key === 'Home') { next = 0; e.preventDefault(); }
+        else if (e.key === 'End') { next = tabs.length - 1; e.preventDefault(); }
+        else return;
+        tabs[next].focus();
+        switchView(tabs[next].dataset.tab);
+    });
+
+    // Tab click handler
+    document.querySelectorAll('[role="tab"]').forEach(tab => {
+        tab.addEventListener('click', () => switchView(tab.dataset.tab));
+    });
+
+    // ===== ANIMATED COUNTERS =====
+    function animateCounters() {
+        document.querySelectorAll('.counter').forEach(el => {
+            const target = parseInt(el.dataset.target) || 0;
+            if (target === 0) { el.textContent = '0'; return; }
+            const dur = 1400, start = performance.now();
+            (function step(now) {
+                const p = Math.min((now - start) / dur, 1);
+                const ease = 1 - Math.pow(1 - p, 4);
+                el.textContent = Math.round(ease * target);
+                if (p < 1) requestAnimationFrame(step);
+            })(start);
+        });
+    }
+
+    // ===== SCAN =====
+    async function triggerScan() { return startScan(false); }
+    async function startScan(full) {
+        const btn = document.getElementById('scanBtn');
+        const icon = document.getElementById('scanIcon');
+        const rail = document.getElementById('scanRail');
+        btn.disabled = true; btn.classList.add('running');
+        icon.classList.add('spinning');
+        document.getElementById('scanText').textContent = 'Scanning...';
+        rail.classList.add('active');
+        spawnParticles(btn);
+        try {
+            const opts = full
+                ? { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ full: true }) }
+                : { method: 'POST' };
+            const d = await safeFetch('/api/scan', opts);
+            if (d.status === 'already_running') { toast(t('toast_scan_running'), 'info'); resetScan(); return; }
+            toast(t('toast_scanning'), 'info');
+            pollScan();
+        } catch(e) { resetScan(); }
+    }
+    // Save the date range, then do a FULL re-fetch (rebuild pending for that range).
+    async function fetchRange() {
+        const start = document.getElementById('setRangeStart').value || '';
+        const end = document.getElementById('setRangeEnd').value || '';
+        const label = (start || 'today') + '  →  ' + (end || 'today');
+        if (!confirm(t('fetch_range_confirm', label))) return;
+        await saveSettings();       // persists the range (and closes the drawer)
+        startScan(true);            // full scan: reset hashes + clear pending, then fetch
+    }
+    function resetScan() {
+        const btn = document.getElementById('scanBtn');
+        btn.disabled = false; btn.classList.remove('running');
+        document.getElementById('scanIcon').classList.remove('spinning');
+        document.getElementById('scanText').textContent = 'Scan Now';
+        document.getElementById('scanRail').classList.remove('active');
+    }
+    function pollScan() {
+        const iv = setInterval(async () => {
+            try {
+                const d = await safeFetch('/api/scan-status');
+                if (!d.in_progress) {
+                    clearInterval(iv);
+                    resetScan();
+                    await applyScanResults(d.stats);
+                }
+            } catch(e) { clearInterval(iv); resetScan(); }
+        }, 3000);
+    }
+
+    function setText(id, val) {
+        const el = document.getElementById(id);
+        if (el && val != null) el.textContent = val;
+    }
+
+    // Refresh the dashboard in place after a scan (no full page reload).
+    async function applyScanResults(stats) {
+        stats = stats || {};
+        const ls = stats.last_scan || {};
+        const newCount = (ls.new_grants_found != null) ? ls.new_grants_found : 0;
+        const errs = ls.errors || 0;
+        let msg = t('toast_scan_complete', newCount);
+        if (errs > 0) msg += ' · ' + errs + ' ' + t('errors');
+        toast(msg, errs > 0 ? 'info' : 'success');
+
+        setText('statSources', stats.total_sites);
+        setText('statPending', stats.pending_grants);
+        setText('statAccepted', stats.accepted_grants);
+        setText('statRejected', stats.rejected_grants);
+        if (ls.finished_at) setText('statLastScan', ls.finished_at.substring(11, 16));
+
+        gridTotal.pending = stats.pending_grants;
+        gridTotal.accepted = stats.accepted_grants;
+        gridTotal.rejected = stats.rejected_grants;
+        refreshBadges();
+        await loadGrid(activeStatus, false);
+    }
+
+    // ===== MARK READ (with loading state) =====
+    async function markRead(id, el) {
+        const card = el.closest('.program-card');
+        if (!card) return;
+        el.disabled = true;
+        try {
+            await safeFetch('/api/grants/' + id + '/read', { method: 'POST' });
+            card.classList.remove('is-new'); card.dataset.read = '1';
+            const f = card.querySelector('.pc-new-flag'); if (f) f.remove();
+            const b = card.querySelector('.btn-dismiss'); if (b) b.remove();
+        } catch(e) { el.disabled = false; }
+    }
+
+    async function triageGrant(id, action, el) {
+        const card = el.closest('.program-card');
+        if (!card) return;
+        el.disabled = true;
+        try {
+            await safeFetch('/api/grants/' + id + '/' + action, { method: 'POST' });
+            // Animate card out
+            card.style.transition = 'all .3s var(--ease)';
+            card.style.opacity = '0';
+            card.style.transform = 'scale(0.9)';
+            setTimeout(function() {
+                card.remove();
+                gridLoaded[activeStatus] = Math.max(0, gridLoaded[activeStatus] - 1);
+                if (gridTotal[activeStatus] != null) gridTotal[activeStatus] = Math.max(0, gridTotal[activeStatus] - 1);
+                updateGridChrome(activeStatus);
+                refreshBadges();
+            }, 300);
+            const msgs = { accept: t('toast_accepted'), reject: t('toast_rejected'), restore: t('toast_restored') };
+            toast(msgs[action] || 'Done', action === 'reject' ? 'info' : 'success');
+        } catch(e) { el.disabled = false; }
+    }
+
+    // ===== MARK ALL READ (with confirmation) =====
+    function confirmMarkAllRead() {
+        confirmAction('Mark all grants as read? This cannot be undone.', async () => {
+            try {
+                await safeFetch('/api/grants/read-all', { method: 'POST' });
+                toast(t('toast_all_read'), 'success');
+                document.querySelectorAll('.program-card.is-new').forEach(c => {
+                    c.classList.remove('is-new'); c.dataset.read = '1';
+                    const f = c.querySelector('.pc-new-flag'); if (f) f.remove();
+                    const b = c.querySelector('.btn-dismiss'); if (b) b.remove();
+                });
+                const badge = document.getElementById('tabBadge'); if (badge) badge.remove();
+            } catch(e) {}
+        });
+    }
+
+    // ===== TOGGLE SITE (with loading) =====
+    async function toggleSite(id, cb) {
+        cb.disabled = true;
+        try {
+            await safeFetch('/api/sites/' + id + '/toggle', { method: 'POST' });
+            const label = cb.closest('.sc-toggle-row').querySelector('.sc-toggle-label');
+            label.textContent = cb.checked ? 'Active' : 'Paused';
+            cb.setAttribute('aria-checked', cb.checked ? 'true' : 'false');
+            toast(cb.checked ? t('toast_activated') : t('toast_paused'), 'info');
+        } catch(e) { cb.checked = !cb.checked; }
+        cb.disabled = false;
+    }
+
+    function sendAcceptedToTeam() {
+        confirmAction(t('confirm_send_team'), async function() {
+            const btn = document.getElementById('sendTeamBtn');
+            btn.disabled = true;
+            try {
+                const r = await fetch('/api/email/accepted', { method: 'POST', headers: {'Content-Type':'application/json'} });
+                const d = await r.json();
+                if (r.ok) toast(t('toast_team_sent', d.sent), 'success');
+                else toast(d.error || 'failed', 'error');
+            } catch(e) { toast('' + e.message, 'error'); }
+            btn.disabled = false;
+        });
+    }
+
+    async function saveSelector(id, value, btn) {
+        btn.disabled = true;
+        try {
+            await safeFetch('/api/sites/' + id + '/selector', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ css_selector: value })
+            });
+            toast(t('toast_selector_saved'), 'success');
+        } catch(e) {}
+        btn.disabled = false;
+    }
+
+    // ===== FILTERS =====
+    let unreadOnly = false;
+    function toggleUnread() {
+        unreadOnly = !unreadOnly;
+        const btn = document.getElementById('unreadBtn');
+        btn.classList.toggle('active', unreadOnly);
+        btn.setAttribute('aria-pressed', unreadOnly);
+        filterGrants();
+    }
+    // ===================== SERVER-DRIVEN GRANT GRID =====================
+    const GRID_BY_STATUS = { pending: 'grantsGrid', accepted: 'acceptedGrid', rejected: 'rejectedGrid' };
+    const gridLoaded = { pending: 0, accepted: 0, rejected: 0 };
+    const gridTotal = { pending: null, accepted: null, rejected: null };
+    let activeStatus = 'pending';
+    let gridReqSeq = 0;
+
+    function monthsAgoISO(n) {
+        const d = new Date();
+        d.setMonth(d.getMonth() - n);
+        return d.toISOString().slice(0, 10);
+    }
+    // Given an ISO deadline date, return a relative-time suffix + urgency state.
+    function deadlineInfo(ds) {
+        if (!ds) return null;
+        const d = new Date(ds + 'T00:00:00');
+        if (isNaN(d)) return null;
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const days = Math.round((d - today) / 86400000);
+        if (days < 0) return { suffix: t('expired'), state: 'expired' };
+        if (days === 0) return { suffix: t('deadline_today'), state: 'urgent' };
+        return { suffix: t('days_left', days), state: days <= 7 ? 'urgent' : (days <= 30 ? 'soon' : '') };
+    }
+    function annotateDeadlines() {
+        document.querySelectorAll('.pc-deadline').forEach(el => {
+            el.classList.remove('urgent', 'soon', 'expired');
+            const info = deadlineInfo(el.dataset.deadlineDate);
+            const leftEl = el.querySelector('.pc-deadline-left');
+            if (!info) { if (leftEl) leftEl.textContent = ''; return; }
+            if (info.state) el.classList.add(info.state);
+            if (leftEl) leftEl.textContent = '· ' + info.suffix;
+        });
+    }
+    function currentFilters() {
+        return {
+            q: document.getElementById('grantSearch').value.trim(),
+            category: document.getElementById('catFilter').value,
+            source: document.getElementById('sourceFilter').value,
+            release: document.getElementById('releaseFilter').value,
+            rstart: document.getElementById('releaseStart').value,
+            rend: document.getElementById('releaseEnd').value,
+            hideExpired: document.getElementById('hideExpired').checked,
+            sort: document.getElementById('sortFilter').value,
+        };
+    }
+    function buildGridQuery(status, offset) {
+        const f = currentFilters();
+        const p = new URLSearchParams({ status: status, offset: offset, sort: f.sort });
+        if (f.q) p.set('q', f.q);
+        if (f.category) p.set('category', f.category);
+        if (f.source) p.set('source', f.source);
+        p.set('hide_expired', f.hideExpired ? 'true' : 'false');
+        if (f.release === 'custom') {
+            if (f.rstart) p.set('released_after', f.rstart);
+            if (f.rend) p.set('released_before', f.rend);
+        } else if (f.release) {
+            p.set('released_after', monthsAgoISO(parseInt(f.release, 10)));
+        }
+        return '/api/grants/cards?' + p.toString();
+    }
+    async function loadGrid(status, append) {
+        const grid = document.getElementById(GRID_BY_STATUS[status]);
+        if (!grid) return;
+        const offset = append ? gridLoaded[status] : 0;
+        const seq = ++gridReqSeq;
+        try {
+            const data = await safeFetch(buildGridQuery(status, offset));
+            if (seq !== gridReqSeq) return; // superseded by a newer request
+            if (append) {
+                grid.insertAdjacentHTML('beforeend', data.html);
+                gridLoaded[status] += data.returned;
+            } else {
+                grid.innerHTML = data.html;
+                gridLoaded[status] = data.returned;
+            }
+            gridTotal[status] = data.total;
+            applyLanguage();
+            updateGridChrome(status);
+            syncSelectionUI();
+        } catch (e) {}
+    }
+    function updateGridChrome(status) {
+        if (status !== activeStatus) return;
+        document.getElementById('noResults').style.display = (gridLoaded[status] === 0) ? '' : 'none';
+        const total = gridTotal[status];
+        const remaining = (total == null) ? 0 : total - gridLoaded[status];
+        const wrap = document.getElementById('loadMoreWrap');
+        if (remaining > 0) {
+            wrap.style.display = '';
+            document.getElementById('loadMoreCount').textContent = '(' + remaining + ' ' + t('remaining') + ')';
+        } else {
+            wrap.style.display = 'none';
+        }
+    }
+    let _filterTimer = null;
+    function filterGrants() {
+        clearTimeout(_filterTimer);
+        _filterTimer = setTimeout(function(){ loadGrid(activeStatus, false); }, 200);
+    }
+
+    // ===================== BULK SELECTION =====================
+    function activeGridEl() { return document.getElementById(GRID_BY_STATUS[activeStatus]); }
+    function selectedChecks() {
+        const g = activeGridEl();
+        return g ? [...g.querySelectorAll('.pc-check:checked')] : [];
+    }
+    function syncSelectionUI() {
+        const checks = selectedChecks();
+        document.getElementById('bulkCount').textContent = checks.length;
+        document.getElementById('bulkBar').style.display = checks.length ? 'flex' : 'none';
+        document.getElementById('bulkRestoreBtn').style.display = (activeStatus === 'pending') ? 'none' : '';
+        document.getElementById('bulkAcceptBtn').style.display = (activeStatus === 'accepted') ? 'none' : '';
+        document.getElementById('bulkRejectBtn').style.display = (activeStatus === 'rejected') ? 'none' : '';
+        const g = activeGridEl();
+        const all = g ? g.querySelectorAll('.pc-check').length : 0;
+        const sa = document.getElementById('selectAllCheck');
+        sa.checked = all > 0 && checks.length === all;
+        sa.indeterminate = checks.length > 0 && checks.length < all;
+        checks.forEach(c => c.closest('.program-card').classList.add('selected'));
+    }
+    function clearSelection() {
+        const g = activeGridEl();
+        if (g) g.querySelectorAll('.pc-check').forEach(c => { c.checked = false; c.closest('.program-card').classList.remove('selected'); });
+        syncSelectionUI();
+    }
+    function toggleSelectAll() {
+        const on = document.getElementById('selectAllCheck').checked;
+        const g = activeGridEl();
+        if (g) g.querySelectorAll('.pc-check').forEach(c => { c.checked = on; c.closest('.program-card').classList.toggle('selected', on); });
+        syncSelectionUI();
+    }
+    async function bulkTriage(newStatus) {
+        const ids = selectedChecks().map(c => parseInt(c.dataset.grantId, 10));
+        if (!ids.length) return;
+        try {
+            await safeFetch('/api/grants/bulk', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids: ids, status: newStatus })
+            });
+            toast(t('toast_bulk_done', ids.length), 'success');
+            await loadGrid(activeStatus, false);
+            refreshBadges();
+        } catch (e) {}
+    }
+
+    function setBadge(id, val) {
+        const b = document.getElementById(id);
+        if (!b) return;
+        if (val > 0) { b.textContent = val; b.style.display = ''; } else { b.style.display = 'none'; }
+    }
+    async function refreshBadges() {
+        try {
+            const d = await safeFetch('/api/scan-status');
+            const s = d.stats || {};
+            setBadge('inboxBadge', s.pending_grants);
+            const acc = document.querySelector('.sub-tab[data-subtab="accepted"] .sub-tab-count');
+            if (acc) acc.textContent = s.accepted_grants;
+            const rej = document.querySelector('.sub-tab[data-subtab="rejected"] .sub-tab-count');
+            if (rej) rej.textContent = s.rejected_grants;
+            const tabBadge = document.getElementById('tabBadge');
+            if (tabBadge) { if (s.pending_grants > 0) tabBadge.textContent = s.pending_grants; else tabBadge.remove(); }
+            gridTotal.pending = s.pending_grants;
+            gridTotal.accepted = s.accepted_grants;
+            gridTotal.rejected = s.rejected_grants;
+            updateGridChrome(activeStatus);
+        } catch (e) {}
+    }
+
+    // Build the Source dropdown from ALL sites (not just the current page).
+    async function populateSourceFilter() {
+        const sel = document.getElementById('sourceFilter');
+        if (!sel) return;
+        try {
+            const sites = await safeFetch('/api/sites');
+            const names = [...new Set(sites.map(s => s.name).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+            names.forEach(n => { const o = document.createElement('option'); o.value = n; o.textContent = n; sel.appendChild(o); });
+        } catch (e) {}
+    }
+
+    function clearFilters() {
+        document.getElementById('grantSearch').value = '';
+        document.getElementById('catFilter').value = '';
+        document.getElementById('sourceFilter').value = '';
+        document.getElementById('releaseFilter').value = '';
+        document.getElementById('releaseStart').value = '';
+        document.getElementById('releaseEnd').value = '';
+        document.getElementById('releaseCustom').style.display = 'none';
+        document.getElementById('hideExpired').checked = true; // expired hidden by default
+        loadGrid(activeStatus, false);
+    }
+    function filterSites() {
+        const q = document.getElementById('siteSearch').value.toLowerCase();
+        const cat = document.getElementById('siteCatFilter').value;
+        document.querySelectorAll('.site-card').forEach(c => {
+            const nm = c.dataset.name;
+            const cc = c.dataset.category;
+            c.style.display = (!q || nm.includes(q)) && (!cat || cc === cat) ? '' : 'none';
+        });
+    }
+
+    // ===== SORTING (server-side) =====
+    function sortGrants() { loadGrid(activeStatus, false); }
+
+    // ===== LOAD MORE (server pagination) =====
+    function loadMore() { loadGrid(activeStatus, true); }
+
+    // ===== GRANT DETAIL MODAL =====
+    let currentGrantId = null;
+
+    function openGrantDetail(card) {
+        const modal = document.getElementById('grantModal');
+        const backdrop = document.getElementById('modalBackdrop');
+        currentGrantId = card.dataset.id;
+        document.getElementById('modalTitle').textContent = card.dataset.title || '';
+        document.getElementById('modalSource').textContent = card.dataset.source || '';
+        document.getElementById('modalDate').textContent = card.dataset.date ? t('found_on') + ': ' + card.dataset.date.substring(0,16).replace('T', ' ') : '';
+        const publishedEl = document.getElementById('modalPublished');
+        publishedEl.textContent = card.dataset.published ? t('published') + ': ' + card.dataset.published : '';
+        const deadlineEl = document.getElementById('modalDeadline');
+        deadlineEl.classList.remove('urgent', 'soon', 'expired');
+        const dlText = card.dataset.deadlineDate || card.dataset.deadline || '';
+        if (dlText) {
+            const info = deadlineInfo(card.dataset.deadlineDate);
+            deadlineEl.textContent = t('deadline') + ': ' + dlText + (info ? ' (' + info.suffix + ')' : '');
+            if (info && info.state) deadlineEl.classList.add(info.state);
+        } else {
+            deadlineEl.textContent = '';
+        }
+        const lastSeenEl = document.getElementById('modalLastSeen');
+        lastSeenEl.textContent = card.dataset.lastSeen ? t('last_seen') + ': ' + card.dataset.lastSeen.substring(0,16).replace('T', ' ') : '';
+        document.getElementById('modalDesc').textContent = card.dataset.desc || 'No description available.';
+        document.getElementById('modalCat').textContent = card.dataset.category || '';
+        document.getElementById('modalCat').className = 'modal-cat pc-cat cat-' + (card.dataset.category || '').toLowerCase().replace(/\//g, '-').replace(/ /g, '-');
+        document.getElementById('modalVisitBtn').href = card.dataset.url || '#';
+        // Keywords
+        const tagsEl = document.getElementById('modalTags');
+        tagsEl.innerHTML = '';
+        try {
+            const kws = JSON.parse(card.dataset.keywords || '[]');
+            kws.forEach(kw => { const s = document.createElement('span'); s.className = 'pc-tag'; s.textContent = kw; tagsEl.appendChild(s); });
+        } catch(e) {}
+
+        // Reset details section
+        document.getElementById('modalDetails').style.display = 'none';
+        document.getElementById('modalApplyBtn').style.display = 'none';
+        const fetchBtn = document.getElementById('modalFetchBtn');
+        fetchBtn.disabled = false;
+        document.getElementById('fetchBtnText').textContent = t('fetch_details');
+
+        // If details already scraped, load them
+        if (card.dataset.detailsScraped === '1') {
+            loadGrantDetails(currentGrantId);
+        }
+
+        modal.setAttribute('aria-hidden','false'); backdrop.setAttribute('aria-hidden','false');
+        modal.classList.add('open'); backdrop.classList.add('open');
+        document.getElementById('modalCloseBtn').focus();
+        // Mark as read on view
+        const id = card.dataset.id;
+        if (id && card.classList.contains('is-new')) markRead(id, card.querySelector('.btn-visit') || card);
+    }
+
+    async function loadGrantDetails(grantId) {
+        try {
+            const grant = await safeFetch('/api/grants/' + grantId);
+            showDetails(grant);
+        } catch(e) {}
+    }
+
+    function formatText(text) {
+        // Split into sentences and group into paragraphs for readability
+        if (!text) return '';
+        // If text has natural line breaks, respect them
+        let lines = text.split(/\n+/).filter(l => l.trim());
+        if (lines.length <= 1) {
+            // Try splitting by sentence-ending patterns followed by uppercase
+            lines = text.split(/(?<=[.!?])\s+(?=[A-ZÇĞİÖŞÜ])/).filter(l => l.trim());
+        }
+        // Group into small paragraphs (3-4 sentences each)
+        const paras = [];
+        for (let i = 0; i < lines.length; i += 3) {
+            paras.push(lines.slice(i, i + 3).join(' '));
+        }
+        return paras.map(p => '<p style="margin:0 0 10px">' + escapeHtml(p) + '</p>').join('');
+    }
+
+    function escapeHtml(str) {
+        const d = document.createElement('div');
+        d.textContent = str;
+        return d.innerHTML;
+    }
+
+    function setSection(wrapId, contentId, value, useHtml) {
+        const wrap = document.getElementById(wrapId);
+        const el = document.getElementById(contentId);
+        if (value && value.trim()) {
+            if (useHtml) {
+                el.innerHTML = value;
+            } else {
+                el.innerHTML = formatText(value);
+            }
+            wrap.style.display = '';
+        } else {
+            wrap.style.display = 'none';
+        }
+    }
+
+    function showDetails(grant) {
+        const sec = document.getElementById('modalDetails');
+
+        // Key info cards
+        const deadlineWrap = document.getElementById('detailDeadlineWrap');
+        const amountWrap = document.getElementById('detailAmountWrap');
+        const keyinfo = document.getElementById('detailKeyinfo');
+
+        let hasKeyinfo = false;
+        if (grant.deadline && grant.deadline.trim()) {
+            document.getElementById('detailDeadline').textContent = grant.deadline;
+            deadlineWrap.style.display = '';
+            hasKeyinfo = true;
+        } else {
+            deadlineWrap.style.display = 'none';
+        }
+
+        if (grant.funding_amount && grant.funding_amount.trim()) {
+            document.getElementById('detailAmount').textContent = grant.funding_amount;
+            amountWrap.style.display = '';
+            hasKeyinfo = true;
+        } else {
+            amountWrap.style.display = 'none';
+        }
+
+        keyinfo.style.display = hasKeyinfo ? '' : 'none';
+
+        // Summary — first ~600 chars of detailed_description
+        const desc = grant.detailed_description || '';
+        const summaryText = desc.substring(0, 600).trim();
+        setSection('detailSummaryWrap', 'detailSummary', summaryText, false);
+
+        // Eligibility
+        setSection('detailEligibilityWrap', 'detailEligibility', grant.eligibility, false);
+
+        // Contact
+        const contactVal = grant.contact_info || '';
+        // Auto-link emails in contact
+        const contactHtml = escapeHtml(contactVal).replace(
+            /([\w.\-]+@[\w.\-]+\.\w{2,})/g,
+            '<a href="mailto:$1" style="color:var(--blue)">$1</a>'
+        );
+        setSection('detailContactWrap', 'detailContact', contactVal ? contactHtml : '', true);
+
+        // Full description (collapsible)
+        const descWrap = document.getElementById('detailDescriptionWrap');
+        const descEl = document.getElementById('detailDescription');
+        const descToggle = document.getElementById('detailDescToggle');
+        const descBody = document.getElementById('detailDescBody');
+        if (desc.length > 100) {
+            descEl.innerHTML = formatText(desc);
+            descWrap.style.display = '';
+            // Reset collapsed state
+            descToggle.setAttribute('aria-expanded', 'false');
+            descBody.classList.remove('open');
+        } else {
+            descWrap.style.display = 'none';
+        }
+
+        // Application URL
+        if (grant.application_url && grant.application_url.trim()) {
+            const applyBtn = document.getElementById('modalApplyBtn');
+            applyBtn.href = grant.application_url;
+            applyBtn.style.display = '';
+        }
+
+        sec.style.display = '';
+        document.getElementById('fetchBtnText').textContent = t('refresh_details');
+        document.getElementById('modalFetchBtn').disabled = false;
+
+        // Mark card as details-scraped
+        const card = document.querySelector('[data-id="' + (grant.id || currentGrantId) + '"]');
+        if (card) card.dataset.detailsScraped = '1';
+    }
+
+    async function fetchGrantDetails() {
+        if (!currentGrantId) return;
+        const btn = document.getElementById('modalFetchBtn');
+        const btnText = document.getElementById('fetchBtnText');
+        btn.disabled = true;
+        btnText.textContent = t('fetching');
+        try {
+            const data = await safeFetch('/api/grants/' + currentGrantId + '/details', { method: 'POST' });
+            if (data.status === 'ok' && data.grant) {
+                showDetails(data.grant);
+                toast(t('toast_details_ok'), 'success');
+            } else {
+                toast(data.error || 'Failed to fetch details', 'error');
+                btn.disabled = false;
+                btnText.textContent = t('retry_fetch');
+            }
+        } catch(e) {
+            toast(t('toast_details_fail'), 'error');
+            btn.disabled = false;
+            btnText.textContent = 'Retry Fetch';
+        }
+    }
+    function closeModal() {
+        document.getElementById('grantModal').classList.remove('open');
+        document.getElementById('grantModal').setAttribute('aria-hidden','true');
+        document.getElementById('modalBackdrop').classList.remove('open');
+        document.getElementById('modalBackdrop').setAttribute('aria-hidden','true');
+    }
+
+    // ===== CONFIRM DIALOG =====
+    let confirmCallback = null;
+    function confirmAction(msg, cb) {
+        document.getElementById('confirmMsg').textContent = msg;
+        confirmCallback = cb;
+        document.getElementById('confirmDialog').classList.add('open');
+        document.getElementById('confirmDialog').setAttribute('aria-hidden','false');
+        document.getElementById('confirmBackdrop').classList.add('open');
+        document.getElementById('confirmBackdrop').setAttribute('aria-hidden','false');
+        document.getElementById('confirmProceedBtn').focus();
+    }
+    function closeConfirm() {
+        document.getElementById('confirmDialog').classList.remove('open');
+        document.getElementById('confirmDialog').setAttribute('aria-hidden','true');
+        document.getElementById('confirmBackdrop').classList.remove('open');
+        document.getElementById('confirmBackdrop').setAttribute('aria-hidden','true');
+        confirmCallback = null;
+    }
+
+    // ===== SETTINGS DRAWER =====
+    function openSettings() {
+        document.getElementById('settingsDrawer').classList.add('open');
+        document.getElementById('settingsDrawer').setAttribute('aria-hidden','false');
+        document.getElementById('drawerBackdrop').classList.add('open');
+        document.getElementById('drawerBackdrop').setAttribute('aria-hidden','false');
+        document.getElementById('drawerCloseBtn').focus();
+    }
+    function closeSettings() {
+        document.getElementById('settingsDrawer').classList.remove('open');
+        document.getElementById('settingsDrawer').setAttribute('aria-hidden','true');
+        document.getElementById('drawerBackdrop').classList.remove('open');
+        document.getElementById('drawerBackdrop').setAttribute('aria-hidden','true');
+    }
+    async function saveSettings() {
+        const data = {
+            scan_interval_hours: parseInt(document.getElementById('setScanInterval').value) || 3,
+            scan_range_start: document.getElementById('setRangeStart').value || '',
+            scan_range_end: document.getElementById('setRangeEnd').value || '',
+            email_enabled: document.getElementById('setEmailEnabled').checked,
+            email_provider: document.getElementById('setEmailProvider').value,
+            email_sender: document.getElementById('setEmailSender').value.trim(),
+            email_smtp_server: document.getElementById('setSmtpServer').value.trim(),
+            email_smtp_port: parseInt(document.getElementById('setSmtpPort').value) || 587,
+            email_recipients: document.getElementById('setEmailRecip').value.split(',').map(s => s.trim()).filter(Boolean),
+            desktop_notifications: document.getElementById('setDesktopEnabled').checked,
+        };
+        const pw = document.getElementById('setEmailPass').value.trim();
+        if (pw) data.email_password = pw;
+        const sgKey = document.getElementById('setSendgridKey').value.trim();
+        if (sgKey) data.sendgrid_api_key = sgKey; // blank = keep existing
+        try {
+            await safeFetch('/api/settings', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data) });
+            toast(t('toast_settings_saved'), 'success');
+            closeSettings();
+        } catch(e) {}
+    }
+
+    // Show only the credential field relevant to the chosen provider.
+    function syncProviderFields() {
+        const prov = document.getElementById('setEmailProvider').value;
+        document.querySelectorAll('[data-provider-row]').forEach(row => {
+            row.style.display = (row.dataset.providerRow === prov) ? '' : 'none';
+        });
+    }
+
+    async function sendTestEmail() {
+        const btn = document.getElementById('testEmailBtn');
+        const recips = document.getElementById('setEmailRecip').value.split(',').map(s => s.trim()).filter(Boolean);
+        const to = recips[0] || document.getElementById('setEmailSender').value.trim();
+        if (!to) { toast(t('test_no_recipient'), 'error'); return; }
+        btn.disabled = true;
+        try {
+            await safeFetch('/api/settings', { method: 'POST', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify(saveSettingsPayload()) });
+            const r = await fetch('/api/test-email', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ to: to }) });
+            const d = await r.json();
+            if (r.ok) toast(t('test_sent', to), 'success');
+            else toast((d.error || 'failed'), 'error');
+        } catch(e) { toast('' + e.message, 'error'); }
+        btn.disabled = false;
+    }
+    // Build the same payload saveSettings sends (so a test uses current field values).
+    function saveSettingsPayload() {
+        const data = {
+            email_enabled: true,
+            email_provider: document.getElementById('setEmailProvider').value,
+            email_sender: document.getElementById('setEmailSender').value.trim(),
+            email_smtp_server: document.getElementById('setSmtpServer').value.trim(),
+            email_smtp_port: parseInt(document.getElementById('setSmtpPort').value) || 587,
+            email_recipients: document.getElementById('setEmailRecip').value.split(',').map(s => s.trim()).filter(Boolean),
+        };
+        const sgKey = document.getElementById('setSendgridKey').value.trim();
+        if (sgKey) data.sendgrid_api_key = sgKey;
+        const pw = document.getElementById('setEmailPass').value.trim();
+        if (pw) data.email_password = pw;
+        return data;
+    }
+
+    // ===== TOAST =====
+    function toast(msg, type) {
+        type = type || 'info';
+        const rack = document.getElementById('toasts');
+        const t = document.createElement('div');
+        t.className = 'toast t-' + type;
+        t.setAttribute('role', 'status');
+        const icons = {
+            success:'<polyline points="20 6 9 17 4 12"/>',
+            error:'<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>',
+            info:'<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>'
+        };
+        t.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">' + (icons[type]||icons.info) + '</svg><span>' + msg + '</span>';
+        rack.appendChild(t);
+        requestAnimationFrame(() => t.classList.add('show'));
+        setTimeout(() => { t.classList.remove('show'); t.addEventListener('transitionend', () => t.remove()); }, 4000);
+    }
+
+    // ===== COUNTDOWN =====
+    const INTERVAL = {{ config.SCAN_INTERVAL_HOURS }} * 3600000;
+    let lastScan = null;
+    {% if stats.last_scan and stats.last_scan.finished_at %}
+    lastScan = new Date('{{ stats.last_scan.finished_at }}Z').getTime();
+    {% endif %}
+    function tickCountdown() {
+        const el = document.getElementById('countdownText');
+        if (!lastScan) { el.textContent = 'No scan yet'; return; }
+        const rem = Math.max(0, (lastScan + INTERVAL) - Date.now());
+        if (rem === 0) { el.textContent = 'Due now'; return; }
+        const h = Math.floor(rem/3600000), m = Math.floor((rem%3600000)/60000), s = Math.floor((rem%60000)/1000);
+        el.textContent = String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+    }
+    setInterval(tickCountdown, 1000);
+
+    // ===== PARTICLES ON SCAN BTN =====
+    function spawnParticles(origin) {
+        const canvas = document.getElementById('particleCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+        const rect = origin.getBoundingClientRect();
+        const cx = rect.left + rect.width/2, cy = rect.top + rect.height/2;
+        const particles = [];
+        for (let i = 0; i < 30; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 2 + Math.random() * 4;
+            particles.push({ x:cx, y:cy, vx:Math.cos(angle)*speed, vy:Math.sin(angle)*speed, life:1, color: Math.random()>0.5 ? '#58a6ff' : '#3fb950', size: 2+Math.random()*3 });
+        }
+        let frame = 0;
+        function draw() {
+            ctx.clearRect(0,0,canvas.width,canvas.height);
+            let alive = false;
+            particles.forEach(p => {
+                p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life -= 0.02;
+                if (p.life <= 0) return;
+                alive = true;
+                ctx.globalAlpha = p.life;
+                ctx.fillStyle = p.color;
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI*2); ctx.fill();
+            });
+            ctx.globalAlpha = 1;
+            if (alive && frame < 120) { frame++; requestAnimationFrame(draw); }
+            else ctx.clearRect(0,0,canvas.width,canvas.height);
+        }
+        requestAnimationFrame(draw);
+    }
+
+    // ===== DONUT CHART =====
+    function renderDonut() {
+        const canvas = document.getElementById('donutCanvas');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const entries = Object.entries(catData);
+        if (entries.length === 0) return;
+        const total = entries.reduce((s, [,v]) => s + v, 0);
+        const cx = 70, cy = 70, outerR = 60, innerR = 38;
+        let startAngle = -Math.PI / 2;
+        ctx.clearRect(0, 0, 140, 140);
+        entries.forEach(([cat, count]) => {
+            const slice = (count / total) * Math.PI * 2;
+            ctx.beginPath();
+            ctx.arc(cx, cy, outerR, startAngle, startAngle + slice);
+            ctx.arc(cx, cy, innerR, startAngle + slice, startAngle, true);
+            ctx.closePath();
+            ctx.fillStyle = CAT_COLORS[cat] || '#484f58';
+            ctx.fill();
+            startAngle += slice;
+        });
+        // Center text
+        ctx.fillStyle = '#e6edf3';
+        ctx.font = '700 20px "JetBrains Mono", monospace';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(total, cx, cy - 6);
+        ctx.fillStyle = '#6e7681';
+        ctx.font = '500 9px "Outfit", sans-serif';
+        ctx.fillText('GRANTS', cx, cy + 10);
+        // Legend
+        const legend = document.getElementById('catLegend');
+        if (!legend) return;
+        legend.innerHTML = '';
+        entries.sort((a, b) => b[1] - a[1]).forEach(([cat, count]) => {
+            const pct = Math.round(count / total * 100);
+            const el = document.createElement('div');
+            el.className = 'cat-legend-item';
+            el.innerHTML = '<span class="cat-dot" style="background:' + (CAT_COLORS[cat]||'#484f58') + '"></span><span class="cat-lbl">' + cat + '</span><span class="cat-pct">' + count + ' (' + pct + '%)</span>';
+            legend.appendChild(el);
+        });
+    }
+
+    // ===== AUTO REFRESH =====
+    setInterval(async () => {
+        try {
+            const d = await fetch('/api/scan-status').then(r => r.json());
+            const el = document.getElementById('statNew'); if (el) el.textContent = d.stats.new_grants;
+            const b = document.getElementById('tabBadge'); if (b) b.textContent = d.stats.unread_grants;
+        } catch(e) {}
+    }, 60000);
+
+    // ===== EVENT DELEGATION =====
+    document.addEventListener('DOMContentLoaded', function() {
+        // Apply saved language
+        applyLanguage();
+
+        // Language toggle
+        document.getElementById('langToggleBtn').addEventListener('click', toggleLanguage);
+
+        animateCounters();
+        tickCountdown();
+        renderDonut();
+
+        // Sub-tab switching
+        document.querySelectorAll('.sub-tab').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.sub-tab').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.grants-panel').forEach(p => { p.classList.remove('active'); p.style.display = 'none'; });
+                btn.classList.add('active');
+                const panel = document.getElementById('panel-' + btn.dataset.subtab);
+                panel.style.display = 'block';
+                panel.classList.add('active');
+                // Switch active status and (re)load this grid with current filters.
+                activeStatus = btn.dataset.subtab;
+                loadGrid(activeStatus, false);
+                // Show donut only on accepted tab
+                const donut = document.getElementById('donutWrap');
+                if (donut) donut.style.display = btn.dataset.subtab === 'accepted' ? '' : 'none';
+            });
+        });
+
+        // Card click handler for all grids
+        function handleCardClick(e) {
+            const acceptBtn = e.target.closest('.btn-accept');
+            if (acceptBtn) {
+                e.preventDefault();
+                triageGrant(acceptBtn.dataset.grantId, 'accept', acceptBtn);
+                return;
+            }
+            const rejectBtn = e.target.closest('.btn-reject');
+            if (rejectBtn) {
+                e.preventDefault();
+                triageGrant(rejectBtn.dataset.grantId, 'reject', rejectBtn);
+                return;
+            }
+            const restoreBtn = e.target.closest('.btn-restore');
+            if (restoreBtn) {
+                e.preventDefault();
+                triageGrant(restoreBtn.dataset.grantId, 'restore', restoreBtn);
+                return;
+            }
+            const visitBtn = e.target.closest('.btn-visit');
+            if (visitBtn) {
+                const id = visitBtn.dataset.grantId;
+                if (id) markRead(id, visitBtn);
+                return;
+            }
+            const expandBtn = e.target.closest('.btn-expand');
+            if (expandBtn) {
+                e.preventDefault();
+                const card = expandBtn.closest('.program-card');
+                if (card) openGrantDetail(card);
+                return;
+            }
+            const card = e.target.closest('.program-card');
+            if (card && !e.target.closest('a') && !e.target.closest('button')) {
+                openGrantDetail(card);
+            }
+        }
+
+        ['grantsGrid', 'acceptedGrid', 'rejectedGrid'].forEach(function(gid) {
+            const g = document.getElementById(gid);
+            if (!g) return;
+            g.addEventListener('click', handleCardClick);
+            // Selection checkboxes (event delegation)
+            g.addEventListener('change', function(e) {
+                if (e.target.classList.contains('pc-check')) {
+                    e.target.closest('.program-card').classList.toggle('selected', e.target.checked);
+                    syncSelectionUI();
+                }
+            });
+        });
+
+        // Initialise grid pagination state from the server-rendered first page.
+        ['pending', 'accepted', 'rejected'].forEach(function(st) {
+            const g = document.getElementById(GRID_BY_STATUS[st]);
+            gridLoaded[st] = g ? g.querySelectorAll('.program-card').length : 0;
+            gridTotal[st] = g ? (parseInt(g.dataset.total || '0', 10)) : 0;
+        });
+        updateGridChrome('pending');
+
+        // Bulk action bar
+        document.getElementById('selectAllCheck').addEventListener('change', toggleSelectAll);
+        document.getElementById('bulkAcceptBtn').addEventListener('click', function(){ bulkTriage('accepted'); });
+        document.getElementById('bulkRejectBtn').addEventListener('click', function(){ bulkTriage('rejected'); });
+        document.getElementById('bulkRestoreBtn').addEventListener('click', function(){ bulkTriage('pending'); });
+        document.getElementById('bulkClearBtn').addEventListener('click', clearSelection);
+
+        // Site toggles via delegation
+        document.getElementById('sitesGrid').addEventListener('change', function(e) {
+            if (e.target.matches('input[type="checkbox"][data-site-id]')) {
+                toggleSite(e.target.dataset.siteId, e.target);
+            }
+        });
+        // Save per-site CSS selector
+        document.getElementById('sitesGrid').addEventListener('click', function(e) {
+            const btn = e.target.closest('.sc-selector-save');
+            if (!btn) return;
+            const input = btn.parentElement.querySelector('.sc-selector-input');
+            saveSelector(btn.dataset.siteId, input.value, btn);
+        });
+
+        // Toolbar events
+        populateSourceFilter();
+        document.getElementById('grantSearch').addEventListener('input', filterGrants);
+        document.getElementById('catFilter').addEventListener('change', filterGrants);
+        document.getElementById('sourceFilter').addEventListener('change', filterGrants);
+        document.getElementById('releaseFilter').addEventListener('change', function() {
+            document.getElementById('releaseCustom').style.display = (this.value === 'custom') ? '' : 'none';
+            filterGrants();
+        });
+        document.getElementById('releaseStart').addEventListener('change', filterGrants);
+        document.getElementById('releaseEnd').addEventListener('change', filterGrants);
+        document.getElementById('hideExpired').addEventListener('change', filterGrants);
+        document.getElementById('sortFilter').addEventListener('change', sortGrants);
+        document.getElementById('clearFilters').addEventListener('click', clearFilters);
+        document.getElementById('sendTeamBtn').addEventListener('click', sendAcceptedToTeam);
+        document.getElementById('siteSearch').addEventListener('input', filterSites);
+        document.getElementById('siteCatFilter').addEventListener('change', filterSites);
+
+        // Scan buttons
+        document.getElementById('scanBtn').addEventListener('click', triggerScan);
+        var firstScanBtn = document.getElementById('firstScanBtn');
+        if (firstScanBtn) firstScanBtn.addEventListener('click', triggerScan);
+
+        // Settings
+        document.getElementById('settingsBtn').addEventListener('click', function(){ openSettings(); syncProviderFields(); });
+        document.getElementById('setEmailProvider').addEventListener('change', syncProviderFields);
+        document.getElementById('testEmailBtn').addEventListener('click', sendTestEmail);
+        document.getElementById('drawerCloseBtn').addEventListener('click', closeSettings);
+        document.getElementById('drawerBackdrop').addEventListener('click', closeSettings);
+        document.getElementById('saveSettingsBtn').addEventListener('click', saveSettings);
+        document.getElementById('fetchRangeBtn').addEventListener('click', fetchRange);
+
+        // Modal
+        document.getElementById('modalCloseBtn').addEventListener('click', closeModal);
+        document.getElementById('modalBackdrop').addEventListener('click', closeModal);
+        document.getElementById('detailDescToggle').addEventListener('click', function() {
+            const expanded = this.getAttribute('aria-expanded') === 'true';
+            this.setAttribute('aria-expanded', !expanded);
+            document.getElementById('detailDescBody').classList.toggle('open');
+        });
+
+        // Confirm dialog
+        document.getElementById('confirmCancelBtn').addEventListener('click', closeConfirm);
+        document.getElementById('confirmBackdrop').addEventListener('click', closeConfirm);
+        document.getElementById('confirmProceedBtn').addEventListener('click', function() {
+            if (confirmCallback) confirmCallback();
+            closeConfirm();
+        });
+
+        // Load more
+        var loadMoreBtn = document.getElementById('loadMoreBtn');
+        if (loadMoreBtn) loadMoreBtn.addEventListener('click', loadMore);
+
+        // Escape key closes overlays
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                if (document.getElementById('grantModal').classList.contains('open')) closeModal();
+                else if (document.getElementById('settingsDrawer').classList.contains('open')) closeSettings();
+                else if (document.getElementById('confirmDialog').classList.contains('open')) closeConfirm();
+            }
+        });
+    });
+    </script>
+</body>
+</html>

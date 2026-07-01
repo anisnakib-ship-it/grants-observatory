@@ -1,0 +1,19 @@
+[Unit]
+Description=Grants Observatory (grant/funding monitor)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=moez
+WorkingDirectory=/home/moez/grants-monitor
+# Listen on all interfaces so it's reachable at 192.168.1.135:5000
+Environment=GRANTS_HOST=0.0.0.0
+Environment=GRANTS_PORT=5000
+Environment=PYTHONIOENCODING=utf-8
+ExecStart=/home/moez/grants-monitor/.venv/bin/python app.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

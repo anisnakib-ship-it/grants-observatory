@@ -1,0 +1,30 @@
+# ---- SECRETS / CREDENTIALS — never commit ----
+settings.json
+client_secret*.json
+token.json
+*.credentials.json
+
+# ---- Data (transfer separately via scp) ----
+grants_monitor.db
+grants_monitor.db-wal
+grants_monitor.db-shm
+grants_monitor.db.bak_*
+
+# ---- Python env / caches ----
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# ---- Logs / generated artifacts ----
+*.log
+dashboard_screenshot.png
+report_preview.html
+report_preview.png
+feed_discovery.csv
+backfill_changes.csv
+probe_targets.json
+
+# ---- OS / editor ----
+.DS_Store
+Thumbs.db
