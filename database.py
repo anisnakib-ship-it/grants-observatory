@@ -102,9 +102,13 @@ def extract_date(text):
 
 
 def get_connection():
-    conn = sqlite3.connect(DATABASE_PATH)
+    # timeout + busy_timeout: under the scan's concurrent workers (MAX_WORKERS),
+    # WAL still serializes writers. Without a busy timeout a writer that can't get
+    # the lock immediately raises "database is locked"; give it 30s to wait instead.
+    conn = sqlite3.connect(DATABASE_PATH, timeout=30)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=30000")
     conn.execute("PRAGMA foreign_keys=ON")
     return conn
 

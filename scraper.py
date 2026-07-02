@@ -269,6 +269,11 @@ def scrape_site(site):
     name = site["name"]
     css_selector = site.get("css_selector", "")
 
+    # Track rows inserted this scan so a mid-scrape failure (e.g. "database is
+    # locked") still hands them to the today-filter; otherwise already-inserted
+    # links escape the date check and leak into the inbox as date-less pending.
+    new_grants = []
+
     try:
         html = fetch_page(url)
         content_hash = compute_hash(html)
@@ -322,7 +327,6 @@ def scrape_site(site):
                 candidates.append((link_text, href, parent_text))
                 parent_counts[parent_text] = parent_counts.get(parent_text, 0) + 1
 
-        new_grants = []
         for link_text, href, parent_text in candidates:
             # Match positive keywords on the LINK TEXT; use surrounding text only
             # for the negative (tender/personnel/closed) check.
@@ -368,14 +372,17 @@ def scrape_site(site):
 
     except requests.exceptions.Timeout:
         database.update_site_status(site_id, "error", error="Timeout")
-        return {"site": name, "status": "error", "error": "Timeout", "new_grants": 0}
+        return {"site": name, "status": "error", "error": "Timeout",
+                "new_grants": len(new_grants), "grants": new_grants}
     except requests.exceptions.ConnectionError as e:
         database.update_site_status(site_id, "error", error="Connection failed")
-        return {"site": name, "status": "error", "error": "Connection failed", "new_grants": 0}
+        return {"site": name, "status": "error", "error": "Connection failed",
+                "new_grants": len(new_grants), "grants": new_grants}
     except Exception as e:
         error_msg = str(e)[:200]
         database.update_site_status(site_id, "error", error=error_msg)
-        return {"site": name, "status": "error", "error": error_msg, "new_grants": 0}
+        return {"site": name, "status": "error", "error": error_msg,
+                "new_grants": len(new_grants), "grants": new_grants}
 
 
 # Structured-metadata selectors that carry a real publish date (highest trust).
@@ -722,47 +729,54 @@ def scrape_feed(site):
 
     soup = BeautifulSoup(xml, "xml")
     items = soup.find_all("item") or soup.find_all("entry")
+    # See scrape_site: keep partial inserts reachable by the today-filter if the
+    # loop fails partway (e.g. "database is locked").
     new_grants = []
-    for it in items:
-        tnode = it.find("title")
-        title = (tnode.get_text() if tnode else "").strip()
-        if not title:
-            continue
-        # Link: RSS <link>text</link>, Atom <link href=...>, else <guid>.
-        lnode = it.find("link")
-        if lnode is not None and lnode.get("href"):
-            link = lnode.get("href")
-        elif lnode is not None and lnode.get_text().strip():
-            link = lnode.get_text().strip()
-        else:
-            gnode = it.find("guid")
-            link = gnode.get_text().strip() if gnode else ""
-        link = normalize_url(feed_url, link) or link
-        if not link or _is_landing_page(link):
-            continue
+    try:
+        for it in items:
+            tnode = it.find("title")
+            title = (tnode.get_text() if tnode else "").strip()
+            if not title:
+                continue
+            # Link: RSS <link>text</link>, Atom <link href=...>, else <guid>.
+            lnode = it.find("link")
+            if lnode is not None and lnode.get("href"):
+                link = lnode.get("href")
+            elif lnode is not None and lnode.get_text().strip():
+                link = lnode.get_text().strip()
+            else:
+                gnode = it.find("guid")
+                link = gnode.get_text().strip() if gnode else ""
+            link = normalize_url(feed_url, link) or link
+            if not link or _is_landing_page(link):
+                continue
 
-        dnode = (it.find("pubDate") or it.find("published") or it.find("updated")
-                 or it.find("date"))
-        pub = _feed_date(dnode.get_text()) if dnode else ""
+            dnode = (it.find("pubDate") or it.find("published") or it.find("updated")
+                     or it.find("date"))
+            pub = _feed_date(dnode.get_text()) if dnode else ""
 
-        snode = it.find("description") or it.find("summary") or it.find("content")
-        desc = ""
-        if snode:
-            desc = BeautifulSoup(snode.get_text(), "lxml").get_text(" ", strip=True)[:1000]
+            snode = it.find("description") or it.find("summary") or it.find("content")
+            desc = ""
+            if snode:
+                desc = BeautifulSoup(snode.get_text(), "lxml").get_text(" ", strip=True)[:1000]
 
-        # Same relevance filter as page scraping: keep only grant-like items.
-        matched = matches_keywords(title, context=desc)
-        if not matched:
-            continue
-        grant_id = database.add_grant(
-            site_id=site_id, title=title[:500], url=link,
-            description=desc, keywords_matched=matched, published_date=pub,
-        )
-        if grant_id:
-            new_grants.append({
-                "id": grant_id, "title": title[:500], "url": link,
-                "published_date": pub, "from_feed": True,
-            })
+            # Same relevance filter as page scraping: keep only grant-like items.
+            matched = matches_keywords(title, context=desc)
+            if not matched:
+                continue
+            grant_id = database.add_grant(
+                site_id=site_id, title=title[:500], url=link,
+                description=desc, keywords_matched=matched, published_date=pub,
+            )
+            if grant_id:
+                new_grants.append({
+                    "id": grant_id, "title": title[:500], "url": link,
+                    "published_date": pub, "from_feed": True,
+                })
+    except Exception as e:
+        database.update_site_status(site_id, "error", error=f"feed: {str(e)[:150]}")
+        return {"site": name, "status": "error", "error": str(e)[:150],
+                "new_grants": len(new_grants), "grants": new_grants}
 
     database.update_site_status(site_id, "ok")
     return {"site": name, "status": "ok", "new_grants": len(new_grants), "grants": new_grants}
