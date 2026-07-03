@@ -71,6 +71,7 @@
                     <select id="setEmailProvider" class="setting-input">
                         <option value="sendgrid" {{ 'selected' if config.EMAIL_PROVIDER == 'sendgrid' else '' }}>SendGrid</option>
                         <option value="smtp" {{ 'selected' if config.EMAIL_PROVIDER == 'smtp' else '' }}>SMTP</option>
+                        <option value="gmail_api" {{ 'selected' if config.EMAIL_PROVIDER == 'gmail_api' else '' }}>Gmail API</option>
                     </select>
                 </div>
                 <div class="setting-row">

@@ -402,7 +402,10 @@ if __name__ == "__main__":
         "interval",
         hours=config.SCAN_INTERVAL_HOURS,
         id="grant_scan",
-        next_run_time=None,  # Don't run immediately on start
+        # NOTE: do NOT pass next_run_time=None here — in APScheduler that leaves the
+        # job with no scheduled run (paused forever), which silently disables auto-scan.
+        # The interval trigger's default already schedules the FIRST run one interval
+        # out (not immediately), which is the intended "don't scan on startup" behavior.
     )
     scheduler.start()
     logger.info(f"Scheduler started. Scanning every {config.SCAN_INTERVAL_HOURS} hours.")
