@@ -301,12 +301,17 @@ def notify_new_grants(scan_result):
     send_desktop_notification(f"{count} program newly announced", summary)
 
     # Email alert — use the polished template with full program data
-    # (program name, institution, link, deadline).
-    if not config.EMAIL_ENABLED or not config.EMAIL_RECIPIENTS:
+    # (program name, institution, link, deadline). Recipients = the main list PLUS
+    # the scan-alert-only list (e.g. people who should hear about new programs but
+    # not the manual "accepted programs" email). Deduped, order-preserving.
+    recipients = list(dict.fromkeys(
+        (config.EMAIL_RECIPIENTS or []) + (config.SCAN_ALERT_RECIPIENTS or [])
+    ))
+    if not config.EMAIL_ENABLED or not recipients:
         return
     rows = [database.get_grant_by_id(g["id"]) for g in new_grants if g.get("id")]
     rows = [r for r in rows if r]
     if not rows:
         return
     html = build_programs_email(rows, heading="Bugün Duyurulan Yeni Programlar / Newly Announced Today")
-    send_email_html(f"[Grants] {count} yeni program duyuruldu", html)
+    send_email_html(f"[Grants] {count} yeni program duyuruldu", html, recipients)

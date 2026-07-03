@@ -129,6 +129,11 @@ EMAIL_FROM_NAME = "Grants Monitor"
 EMAIL_PASSWORD = ""  # SMTP only: use app password for Gmail
 EMAIL_RECIPIENTS = []
 
+# Extra recipients that receive ONLY the automatic scan-result alert
+# (notify_new_grants), not the manual "accepted programs" email. Kept out of the
+# public repo — set via settings.json ("scan_alert_recipients") on each host.
+SCAN_ALERT_RECIPIENTS = []
+
 # Gmail API (provider "gmail_api"): OAuth2, no password. client_secret.json is the
 # downloaded OAuth client; token.json is created by the one-time gmail_auth.py consent.
 GMAIL_CLIENT_SECRET_FILE = os.path.join(BASE_DIR, "client_secret.json")
@@ -170,6 +175,7 @@ if os.path.exists(_settings_path):
     EMAIL_SMTP_PORT = int(_overrides.get("email_smtp_port", EMAIL_SMTP_PORT))
     EMAIL_PASSWORD = _overrides.get("email_password", EMAIL_PASSWORD)
     EMAIL_RECIPIENTS = _overrides.get("email_recipients", EMAIL_RECIPIENTS)
+    SCAN_ALERT_RECIPIENTS = _overrides.get("scan_alert_recipients", SCAN_ALERT_RECIPIENTS)
     SENDGRID_API_KEY = _overrides.get("sendgrid_api_key", SENDGRID_API_KEY)
     DESKTOP_NOTIFICATIONS_ENABLED = _overrides.get("desktop_notifications", DESKTOP_NOTIFICATIONS_ENABLED)
     EXCEL_PATH = _overrides.get("excel_path", EXCEL_PATH)
