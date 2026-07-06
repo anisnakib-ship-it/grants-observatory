@@ -272,8 +272,7 @@ def api_email_accepted():
     if not rows:
         return jsonify({"status": "error", "error": "No accepted programs to send"}), 400
     html = build_programs_email(rows, heading="Kabul Edilen Hibe Programları")
-    subject = f"[Grants] {len(rows)} Hibe Programı"
-    ok, error = send_email_html(subject, html)
+    ok, error = send_email_html(config.EMAIL_SUBJECT, html)
     if ok:
         return jsonify({"status": "ok", "sent": len(rows), "recipients": config.EMAIL_RECIPIENTS})
     return jsonify({"status": "error", "error": error}), 500
@@ -300,6 +299,7 @@ def api_get_settings():
         "email_provider": config.EMAIL_PROVIDER,
         "email_sender": config.EMAIL_SENDER,
         "email_from_name": config.EMAIL_FROM_NAME,
+        "email_subject": config.EMAIL_SUBJECT,
         "email_smtp_server": config.EMAIL_SMTP_SERVER,
         "email_smtp_port": config.EMAIL_SMTP_PORT,
         "scan_range_start": config.SCAN_RANGE_START,
@@ -352,6 +352,7 @@ def api_save_settings():
         ("desktop_notifications", "DESKTOP_NOTIFICATIONS_ENABLED"),
         ("email_sender", "EMAIL_SENDER"),
         ("email_from_name", "EMAIL_FROM_NAME"),
+        ("email_subject", "EMAIL_SUBJECT"),
         ("email_smtp_server", "EMAIL_SMTP_SERVER"),
         ("email_smtp_port", "EMAIL_SMTP_PORT"),
         ("scan_range_start", "SCAN_RANGE_START"),

@@ -126,6 +126,8 @@ EMAIL_SMTP_SERVER = "smtp.gmail.com"
 EMAIL_SMTP_PORT = 587
 EMAIL_SENDER = ""
 EMAIL_FROM_NAME = "Grants Monitor"
+# Shared subject line for outgoing program emails (scan alerts + accepted list).
+EMAIL_SUBJECT = "Sun Consultancy | New Announcement"
 EMAIL_PASSWORD = ""  # SMTP only: use app password for Gmail
 EMAIL_RECIPIENTS = []
 
@@ -171,6 +173,7 @@ if os.path.exists(_settings_path):
     EMAIL_PROVIDER = _overrides.get("email_provider", EMAIL_PROVIDER)
     EMAIL_SENDER = _overrides.get("email_sender", EMAIL_SENDER)
     EMAIL_FROM_NAME = _overrides.get("email_from_name", EMAIL_FROM_NAME)
+    EMAIL_SUBJECT = _overrides.get("email_subject", EMAIL_SUBJECT)
     EMAIL_SMTP_SERVER = _overrides.get("email_smtp_server", EMAIL_SMTP_SERVER)
     EMAIL_SMTP_PORT = int(_overrides.get("email_smtp_port", EMAIL_SMTP_PORT))
     EMAIL_PASSWORD = _overrides.get("email_password", EMAIL_PASSWORD)

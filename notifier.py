@@ -313,4 +313,4 @@ def notify_new_grants(scan_result):
     if not rows:
         return
     html = build_programs_email(rows, heading="Bugün Duyurulan Yeni Programlar / Newly Announced Today")
-    send_email_html(f"[Grants] {count} yeni program duyuruldu", html, recipients)
+    send_email_html(config.EMAIL_SUBJECT, html, recipients)
