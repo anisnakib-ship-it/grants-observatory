@@ -305,6 +305,7 @@ def api_get_settings():
         "scan_range_start": config.SCAN_RANGE_START,
         "scan_range_end": config.SCAN_RANGE_END,
         "email_recipients": config.EMAIL_RECIPIENTS,
+        "scan_alert_enabled": config.SCAN_ALERT_ENABLED,
         "scan_alert_recipients": config.SCAN_ALERT_RECIPIENTS,
         # Never expose the key itself; just report whether one is configured.
         "sendgrid_key_set": bool(config.SENDGRID_API_KEY),
@@ -359,6 +360,7 @@ def api_save_settings():
         ("scan_range_end", "SCAN_RANGE_END"),
         ("email_password", "EMAIL_PASSWORD"),
         ("email_recipients", "EMAIL_RECIPIENTS"),
+        ("scan_alert_enabled", "SCAN_ALERT_ENABLED"),
         ("scan_alert_recipients", "SCAN_ALERT_RECIPIENTS"),
         ("sendgrid_api_key", "SENDGRID_API_KEY"),
         ("scan_interval_hours", "SCAN_INTERVAL_HOURS"),

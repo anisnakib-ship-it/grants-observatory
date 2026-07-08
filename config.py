@@ -131,6 +131,12 @@ EMAIL_SUBJECT = "Sun Consultancy | New Announcement"
 EMAIL_PASSWORD = ""  # SMTP only: use app password for Gmail
 EMAIL_RECIPIENTS = []
 
+# Master switch for the automatic post-scan email alert (notify_new_grants).
+# When False, a scan still runs (and desktop notifications still fire), but no
+# "newly announced today" email is sent. The manual "accepted programs" email is
+# unaffected. Override via settings.json ("scan_alert_enabled").
+SCAN_ALERT_ENABLED = True
+
 # Extra recipients that receive ONLY the automatic scan-result alert
 # (notify_new_grants), not the manual "accepted programs" email. Kept out of the
 # public repo — set via settings.json ("scan_alert_recipients") on each host.
@@ -178,6 +184,7 @@ if os.path.exists(_settings_path):
     EMAIL_SMTP_PORT = int(_overrides.get("email_smtp_port", EMAIL_SMTP_PORT))
     EMAIL_PASSWORD = _overrides.get("email_password", EMAIL_PASSWORD)
     EMAIL_RECIPIENTS = _overrides.get("email_recipients", EMAIL_RECIPIENTS)
+    SCAN_ALERT_ENABLED = _overrides.get("scan_alert_enabled", SCAN_ALERT_ENABLED)
     SCAN_ALERT_RECIPIENTS = _overrides.get("scan_alert_recipients", SCAN_ALERT_RECIPIENTS)
     SENDGRID_API_KEY = _overrides.get("sendgrid_api_key", SENDGRID_API_KEY)
     DESKTOP_NOTIFICATIONS_ENABLED = _overrides.get("desktop_notifications", DESKTOP_NOTIFICATIONS_ENABLED)

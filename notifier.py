@@ -306,7 +306,7 @@ def notify_new_grants(scan_result):
     # "accepted programs" email). Fall back to the main list only if no scan-alert
     # list is configured, so a host without one still gets notified.
     recipients = config.SCAN_ALERT_RECIPIENTS or config.EMAIL_RECIPIENTS
-    if not config.EMAIL_ENABLED or not recipients:
+    if not config.SCAN_ALERT_ENABLED or not config.EMAIL_ENABLED or not recipients:
         return
     rows = [database.get_grant_by_id(g["id"]) for g in new_grants if g.get("id")]
     rows = [r for r in rows if r]
