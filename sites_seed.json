@@ -1,522 +1,522 @@
 [
- {
-  "name": "A.B.D Büyükelçiliği",
-  "url": "https://tr.usembassy.gov/",
-  "category": "Buyukelcilik",
-  "css_selector": "",
-  "feed_url": "https://tr.usembassy.gov/feed/",
-  "is_active": 1
- },
- {
-  "name": "Ab İlan",
-  "url": "https://ab-ilan.com/",
-  "category": "Agregator",
-  "css_selector": "",
-  "feed_url": "https://ab-ilan.com/feed/",
-  "is_active": 1
- },
- {
-  "name": "Ahiler Kalkınma Ajansı",
-  "url": "https://www.ahika.gov.tr/",
-  "category": "Kalkinma Ajansi",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 1
- },
- {
-  "name": "Aile Ve Sosyal Hizmetler Bakanlığı",
-  "url": "https://www.aile.gov.tr/",
-  "category": "Bakanlik",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 1
- },
- {
-  "name": "Ankara Kalkınma Ajansı",
-  "url": "https://ankaraka.org.tr/",
-  "category": "Kalkinma Ajansi",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 1
- },
- {
-  "name": "Avrupa Birliği Bakanlığı",
-  "url": "https://www.ab.gov.tr/",
-  "category": "Bakanlik",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 1
- },
- {
-  "name": "Avrupa Birliği Türkiye Delegasyonu",
-  "url": "https://www.eeas.europa.eu/delegations/t%C3%BCrkiye_tr?s=230",
-  "category": "AB/Uluslararasi",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 1
- },
- {
-  "name": "Avusturalya Büyükelçiliği",
-  "url": "http://turkey.embassy.gov.au/ankaturkish/home.html",
-  "category": "Buyukelcilik",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 1
- },
- {
-  "name": "Batı Akdeniz Kalkınma Ajansı",
-  "url": "https://www.baka.gov.tr/",
-  "category": "Kalkinma Ajansi",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 1
- },
- {
-  "name": "Batı Karadeniz Kalkınma Ajansı",
-  "url": "https://bakka.gov.tr/",
-  "category": "Kalkinma Ajansi",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 1
- },
- {
-  "name": "Bursa, Eskişehir, Bilecik Kalkınma Ajansı",
-  "url": "https://bebka.org.tr/",
-  "category": "Kalkinma Ajansi",
-  "css_selector": "",
-  "feed_url": "https://bebka.org.tr/feed/",
-  "is_active": 1
- },
- {
-  "name": "Dicle Kalkınma Ajansı",
-  "url": "https://www.dika.org.tr/",
-  "category": "Kalkinma Ajansi",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 1
- },
- {
-  "name": "Doğu Akdeniz Kalkınma Ajansı",
-  "url": "https://www.dogaka.gov.tr/",
-  "category": "Kalkinma Ajansi",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 1
- },
- {
-  "name": "Doğu Anadolu Kalkınma Ajansı",
-  "url": "https://www.daka.org.tr/",
-  "category": "Kalkinma Ajansi",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 1
- },
- {
-  "name": "Doğu Karadeniz Kalkınma Ajansı",
-  "url": "https://www.doka.org.tr/destekler_Acik-TR.html",
-  "category": "Kalkinma Ajansi",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 1
- },
- {
-  "name": "Doğu Karadeniz Projesi Bölge Kalkınma İdaresi Başkanlığı",
-  "url": "https://www.dokap.gov.tr/duyurular/Listele/12",
-  "category": "Kalkinma Ajansi",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 1
- },
- {
-  "name": "Doğu Marmara Kalkınma Ajansı",
-  "url": "https://marka.org.tr/",
-  "category": "Kalkinma Ajansi",
-  "css_selector": "",
-  "feed_url": "https://marka.org.tr/feed/",
-  "is_active": 1
- },
- {
-  "name": "Dışişleri Bakanlığı",
-  "url": "https://www.mfa.gov.tr/default.tr.mfa",
-  "category": "Bakanlik",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 1
- },
- {
-  "name": "Enerji Ve Tabii Kaynaklar Bakanlığı",
-  "url": "https://www.enerji.gov.tr/anasayfa",
-  "category": "Bakanlik",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 1
- },
- {
-  "name": "Enhancer Project",
-  "url": "https://enhancerproject.com/hibeler/",
-  "category": "Agregator",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 1
- },
- {
-  "name": "Eximbank",
-  "url": "http://www.eximbank.gov.tr/?_dil=1",
-  "category": "Kamu Bankasi",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 1
- },
- {
-  "name": "Fırat Kalkınma Ajansı",
-  "url": "https://fka.gov.tr/",
-  "category": "Kalkinma Ajansi",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 1
- },
- {
-  "name": "Gap Bölge Kalkınma İdaresi Başkanlığı",
-  "url": "http://www.gap.gov.tr/",
-  "category": "Kalkinma Ajansi",
-  "css_selector": "",
-  "feed_url": "https://www.gap.gov.tr/rss/",
-  "is_active": 1
- },
- {
-  "name": "Gençlik Ve Spor Bakanlığı",
-  "url": "https://gsb.gov.tr/",
-  "category": "Bakanlik",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 1
- },
- {
-  "name": "Güney Ege Kalkınma Ajansı",
-  "url": "https://www.geka.gov.tr/",
-  "category": "Kalkinma Ajansi",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 1
- },
- {
-  "name": "Güney Marmara Kalkınma Ajansı",
-  "url": "https://www.gmka.gov.tr/",
-  "category": "Kalkinma Ajansi",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 1
- },
- {
-  "name": "Hazine Ve Maliye Bakanlığı Merkezi Finans Ve İhale Birimi",
-  "url": "https://cfcu.gov.tr/announcements",
-  "category": "Kamu Kurumu",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 1
- },
- {
-  "name": "Interreg",
-  "url": "https://cbc.ab.gov.tr/?lang=tr",
-  "category": "Bakanlik",
-  "css_selector": "",
-  "feed_url": "https://cbc.ab.gov.tr/feed/",
-  "is_active": 1
- },
- {
-  "name": "Japonya Büyükelçiliği",
-  "url": "http://www.tr.emb-japan.go.jp/",
-  "category": "Buyukelcilik",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 0
- },
- {
-  "name": "Kalkınma Ajansları Genel Müdürlüğü",
-  "url": "https://www.yatirimadestek.gov.tr/duyurular",
-  "category": "Kalkinma Ajansi",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 1
- },
- {
-  "name": "Kamer Vakfı",
-  "url": "http://www.kamer.org.tr/",
-  "category": "NGO/Vakif",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 1
- },
- {
-  "name": "Karacadağ Kalkınma Ajansı",
-  "url": "https://www.karacadag.gov.tr/",
-  "category": "Kalkinma Ajansi",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 1
- },
- {
-  "name": "Kosgeb",
-  "url": "https://www.kosgeb.gov.tr/",
-  "category": "Kamu Kurumu",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 1
- },
- {
-  "name": "Kuzey Anadolu Kalkınma Ajansı",
-  "url": "https://www.kuzka.gov.tr/",
-  "category": "Kalkinma Ajansi",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 1
- },
- {
-  "name": "Kuzeydoğu Anadolu Kalkınma Ajansı",
-  "url": "https://kudaka.gov.tr/",
-  "category": "Kalkinma Ajansi",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 1
- },
- {
-  "name": "Kültür Ve Turizm Bakanlığı",
-  "url": "https://www.ktb.gov.tr/",
-  "category": "Bakanlik",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 1
- },
- {
-  "name": "Mevlana Kalkınma Ajansı",
-  "url": "https://www.mevka.org.tr/",
-  "category": "Kalkinma Ajansi",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 1
- },
- {
-  "name": "Orta Anadolu Kalkınma Ajansı",
-  "url": "https://www.oran.org.tr/",
-  "category": "Kalkinma Ajansi",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 1
- },
- {
-  "name": "Orta Karadeniz Kalkınma Ajansı",
-  "url": "https://oka.gov.tr/",
-  "category": "Kalkinma Ajansi",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 1
- },
- {
-  "name": "Sanayi Ve Teknoloji Bakanlığı",
-  "url": "https://www.sanayi.gov.tr/anasayfa",
-  "category": "Bakanlik",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 1
- },
- {
-  "name": "Serhat Kalkınma Ajansı",
-  "url": "https://www.serka.gov.tr/",
-  "category": "Kalkinma Ajansi",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 1
- },
- {
-  "name": "Sgk",
-  "url": "https://www.sgk.gov.tr/Duyuru",
-  "category": "Kamu Kurumu",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 1
- },
- {
-  "name": "Sistem Global Danışmanlık",
-  "url": "https://www.linkedin.com/company/sistemglobaldanismanlik/posts/?feedView=all",
-  "category": "Sosyal Medya",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 1
- },
- {
-  "name": "Sivil Toplum Geliştirme Merkezi(Stgm)",
-  "url": "http://www.stgm.org.tr/tr",
-  "category": "NGO/Vakif",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 1
- },
- {
-  "name": "Sivil Toplum İçin Destek Vakfı",
-  "url": "https://siviltoplumdestek.org/haberler/",
-  "category": "NGO/Vakif",
-  "css_selector": "",
-  "feed_url": "https://siviltoplumdestek.org/feed/",
-  "is_active": 1
- },
- {
-  "name": "Strateji Ve Bütçe Başkanlığı",
-  "url": "https://www.sbb.gov.tr/",
-  "category": "Kamu Kurumu",
-  "css_selector": "",
-  "feed_url": "https://www.sbb.gov.tr/feed/",
-  "is_active": 1
- },
- {
-  "name": "Tarım Ve Orman Bakanlığı",
-  "url": "https://www.tarimorman.gov.tr/",
-  "category": "Bakanlik",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 1
- },
- {
-  "name": "Tarım ve Kırsal Kalkınmayı Destekleme Kurumu",
-  "url": "https://www.tkdk.gov.tr/",
-  "category": "Kamu Kurumu",
-  "css_selector": "",
-  "feed_url": "https://www.tkdk.gov.tr/rss",
-  "is_active": 1
- },
- {
-  "name": "Ticaret Bakanlığı",
-  "url": "https://ticaret.gov.tr/",
-  "category": "Bakanlik",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 1
- },
- {
-  "name": "Trakya Kalkınma Ajansı",
-  "url": "https://www.trakyaka.org.tr/",
-  "category": "Kalkinma Ajansi",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 1
- },
- {
-  "name": "Ttgv (Türkiye Teknoloji Geliştirme Vakfı)",
-  "url": "https://ttgv.org.tr/programlar",
-  "category": "NGO/Vakif",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 1
- },
- {
-  "name": "Türkiye Aile Sağlığı Ve Güvenliği Vakfı",
-  "url": "http://www.tapv.org.tr/",
-  "category": "NGO/Vakif",
-  "css_selector": "",
-  "feed_url": "https://www.tapv.org.tr/feed/",
-  "is_active": 1
- },
- {
-  "name": "Türkiye Bilimsel ve Teknolojik Araştırma Kurumu",
-  "url": "https://www.tubitak.gov.tr/",
-  "category": "Kamu Kurumu",
-  "css_selector": "",
-  "feed_url": "https://www.tubitak.gov.tr/rss.xml",
-  "is_active": 1
- },
- {
-  "name": "Türkiye Sinai Kalkınma Bankası",
-  "url": "https://www.tskb.com.tr/",
-  "category": "Kamu Bankasi",
-  "css_selector": "section.blogs",
-  "feed_url": "",
-  "is_active": 1
- },
- {
-  "name": "Ufuk Avrupa",
-  "url": "https://ufukavrupa.org.tr/tr",
-  "category": "AB/Uluslararasi",
-  "css_selector": "",
-  "feed_url": "https://ufukavrupa.org.tr/rss.xml",
-  "is_active": 1
- },
- {
-  "name": "Ulusal Ajans",
-  "url": "https://www.ua.gov.tr/",
-  "category": "Kamu Kurumu",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 1
- },
- {
-  "name": "Yeşilay",
-  "url": "http://www.yesilay.org.tr/tr",
-  "category": "NGO/Vakif",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 0
- },
- {
-  "name": "Zafer Kalkınma Ajansı",
-  "url": "https://zafer.gov.tr/",
-  "category": "Kalkinma Ajansi",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 1
- },
- {
-  "name": "Çalışma Ve Sosyal Güvenlik Bakanlığı Avrupa Birliği Ve Mali Yardımlar Dairesi Başkanlığı",
-  "url": "http://www.ikg.gov.tr/",
-  "category": "Kamu Kurumu",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 1
- },
- {
-  "name": "Çevre Ve Şehircilik Bakanlığı",
-  "url": "https://csb.gov.tr/",
-  "category": "Bakanlik",
-  "css_selector": "",
-  "feed_url": "https://csb.gov.tr/rss",
-  "is_active": 1
- },
- {
-  "name": "Çukurova Kalkınma Ajansı",
-  "url": "https://www.cka.org.tr/",
-  "category": "Kalkinma Ajansi",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 1
- },
- {
-  "name": "İpekyolu Kalkınma Ajansı",
-  "url": "https://ika.org.tr/",
-  "category": "Kalkinma Ajansi",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 1
- },
- {
-  "name": "İstanbul Kalkınma Ajansı",
-  "url": "https://www.istka.org.tr/",
-  "category": "Kalkinma Ajansi",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 1
- },
- {
-  "name": "İzmir Kalkınma Ajansı",
-  "url": "https://izka.org.tr/duyurular",
-  "category": "Kalkinma Ajansi",
-  "css_selector": "",
-  "feed_url": "https://izka.org.tr/feed/",
-  "is_active": 1
- },
- {
-  "name": "İşkur",
-  "url": "https://www.iskur.gov.tr/duyurular/",
-  "category": "Kamu Kurumu",
-  "css_selector": "",
-  "feed_url": "",
-  "is_active": 1
- }
+  {
+    "name": "A.B.D Büyükelçiliği",
+    "url": "https://tr.usembassy.gov/",
+    "category": "Büyükelçilik",
+    "css_selector": "",
+    "feed_url": "https://tr.usembassy.gov/feed/",
+    "is_active": 1
+  },
+  {
+    "name": "Ab İlan",
+    "url": "https://ab-ilan.com/",
+    "category": "Duyuru",
+    "css_selector": "",
+    "feed_url": "https://ab-ilan.com/feed/",
+    "is_active": 1
+  },
+  {
+    "name": "Ahiler Kalkınma Ajansı",
+    "url": "https://www.ahika.gov.tr/",
+    "category": "Kalkınma Ajansı",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 1
+  },
+  {
+    "name": "Aile Ve Sosyal Hizmetler Bakanlığı",
+    "url": "https://www.aile.gov.tr/",
+    "category": "Bakanlık",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 1
+  },
+  {
+    "name": "Ankara Kalkınma Ajansı",
+    "url": "https://ankaraka.org.tr/",
+    "category": "Kalkınma Ajansı",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 1
+  },
+  {
+    "name": "Avrupa Birliği Bakanlığı",
+    "url": "https://www.ab.gov.tr/",
+    "category": "Bakanlık",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 1
+  },
+  {
+    "name": "Avrupa Birliği Türkiye Delegasyonu",
+    "url": "https://www.eeas.europa.eu/delegations/t%C3%BCrkiye_tr?s=230",
+    "category": "Avrupa Birliği",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 1
+  },
+  {
+    "name": "Avusturalya Büyükelçiliği",
+    "url": "http://turkey.embassy.gov.au/ankaturkish/home.html",
+    "category": "Büyükelçilik",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 1
+  },
+  {
+    "name": "Batı Akdeniz Kalkınma Ajansı",
+    "url": "https://www.baka.gov.tr/",
+    "category": "Kalkınma Ajansı",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 1
+  },
+  {
+    "name": "Batı Karadeniz Kalkınma Ajansı",
+    "url": "https://bakka.gov.tr/",
+    "category": "Kalkınma Ajansı",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 1
+  },
+  {
+    "name": "Bursa, Eskişehir, Bilecik Kalkınma Ajansı",
+    "url": "https://bebka.org.tr/",
+    "category": "Kalkınma Ajansı",
+    "css_selector": "",
+    "feed_url": "https://bebka.org.tr/feed/",
+    "is_active": 1
+  },
+  {
+    "name": "Dicle Kalkınma Ajansı",
+    "url": "https://www.dika.org.tr/",
+    "category": "Kalkınma Ajansı",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 1
+  },
+  {
+    "name": "Doğu Akdeniz Kalkınma Ajansı",
+    "url": "https://www.dogaka.gov.tr/",
+    "category": "Kalkınma Ajansı",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 1
+  },
+  {
+    "name": "Doğu Anadolu Kalkınma Ajansı",
+    "url": "https://www.daka.org.tr/",
+    "category": "Kalkınma Ajansı",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 1
+  },
+  {
+    "name": "Doğu Karadeniz Kalkınma Ajansı",
+    "url": "https://www.doka.org.tr/destekler_Acik-TR.html",
+    "category": "Kalkınma Ajansı",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 1
+  },
+  {
+    "name": "Doğu Karadeniz Projesi Bölge Kalkınma İdaresi Başkanlığı",
+    "url": "https://www.dokap.gov.tr/duyurular/Listele/12",
+    "category": "Bakanlık",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 1
+  },
+  {
+    "name": "Doğu Marmara Kalkınma Ajansı",
+    "url": "https://marka.org.tr/",
+    "category": "Kalkınma Ajansı",
+    "css_selector": "",
+    "feed_url": "https://marka.org.tr/feed/",
+    "is_active": 1
+  },
+  {
+    "name": "Dışişleri Bakanlığı",
+    "url": "https://www.mfa.gov.tr/default.tr.mfa",
+    "category": "Bakanlık",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 1
+  },
+  {
+    "name": "Enerji Ve Tabii Kaynaklar Bakanlığı",
+    "url": "https://www.enerji.gov.tr/anasayfa",
+    "category": "Bakanlık",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 1
+  },
+  {
+    "name": "Enhancer Project",
+    "url": "https://enhancerproject.com/hibeler/",
+    "category": "Avrupa Birliği",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 1
+  },
+  {
+    "name": "Eximbank",
+    "url": "http://www.eximbank.gov.tr/?_dil=1",
+    "category": "Kamu Bankası",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 1
+  },
+  {
+    "name": "Fırat Kalkınma Ajansı",
+    "url": "https://fka.gov.tr/",
+    "category": "Kalkınma Ajansı",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 1
+  },
+  {
+    "name": "Gap Bölge Kalkınma İdaresi Başkanlığı",
+    "url": "http://www.gap.gov.tr/",
+    "category": "Bakanlık",
+    "css_selector": "",
+    "feed_url": "https://www.gap.gov.tr/rss/",
+    "is_active": 1
+  },
+  {
+    "name": "Gençlik Ve Spor Bakanlığı",
+    "url": "https://gsb.gov.tr/",
+    "category": "Bakanlık",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 1
+  },
+  {
+    "name": "Güney Ege Kalkınma Ajansı",
+    "url": "https://www.geka.gov.tr/",
+    "category": "Kalkınma Ajansı",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 1
+  },
+  {
+    "name": "Güney Marmara Kalkınma Ajansı",
+    "url": "https://www.gmka.gov.tr/",
+    "category": "Kalkınma Ajansı",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 1
+  },
+  {
+    "name": "Hazine Ve Maliye Bakanlığı Merkezi Finans Ve İhale Birimi",
+    "url": "https://cfcu.gov.tr/announcements",
+    "category": "Kamu Kurumu",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 1
+  },
+  {
+    "name": "Interreg",
+    "url": "https://cbc.ab.gov.tr/?lang=tr",
+    "category": "Avrupa Birliği",
+    "css_selector": "",
+    "feed_url": "https://cbc.ab.gov.tr/feed/",
+    "is_active": 1
+  },
+  {
+    "name": "Japonya Büyükelçiliği",
+    "url": "http://www.tr.emb-japan.go.jp/",
+    "category": "Büyükelçilik",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 0
+  },
+  {
+    "name": "Kalkınma Ajansları Genel Müdürlüğü",
+    "url": "https://www.yatirimadestek.gov.tr/duyurular",
+    "category": "Kamu Kurumu",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 1
+  },
+  {
+    "name": "Kamer Vakfı",
+    "url": "http://www.kamer.org.tr/",
+    "category": "Sivil Toplum Kuruluşu",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 1
+  },
+  {
+    "name": "Karacadağ Kalkınma Ajansı",
+    "url": "https://www.karacadag.gov.tr/",
+    "category": "Kalkınma Ajansı",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 1
+  },
+  {
+    "name": "Kosgeb",
+    "url": "https://www.kosgeb.gov.tr/",
+    "category": "Kamu Kurumu",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 1
+  },
+  {
+    "name": "Kuzey Anadolu Kalkınma Ajansı",
+    "url": "https://www.kuzka.gov.tr/",
+    "category": "Kalkınma Ajansı",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 1
+  },
+  {
+    "name": "Kuzeydoğu Anadolu Kalkınma Ajansı",
+    "url": "https://kudaka.gov.tr/",
+    "category": "Kalkınma Ajansı",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 1
+  },
+  {
+    "name": "Kültür Ve Turizm Bakanlığı",
+    "url": "https://www.ktb.gov.tr/",
+    "category": "Bakanlık",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 1
+  },
+  {
+    "name": "Mevlana Kalkınma Ajansı",
+    "url": "https://www.mevka.org.tr/",
+    "category": "Kalkınma Ajansı",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 1
+  },
+  {
+    "name": "Orta Anadolu Kalkınma Ajansı",
+    "url": "https://www.oran.org.tr/",
+    "category": "Kalkınma Ajansı",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 1
+  },
+  {
+    "name": "Orta Karadeniz Kalkınma Ajansı",
+    "url": "https://oka.gov.tr/",
+    "category": "Kalkınma Ajansı",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 1
+  },
+  {
+    "name": "Sanayi Ve Teknoloji Bakanlığı",
+    "url": "https://www.sanayi.gov.tr/anasayfa",
+    "category": "Bakanlık",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 1
+  },
+  {
+    "name": "Serhat Kalkınma Ajansı",
+    "url": "https://www.serka.gov.tr/",
+    "category": "Kalkınma Ajansı",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 1
+  },
+  {
+    "name": "Sgk",
+    "url": "https://www.sgk.gov.tr/Duyuru",
+    "category": "Kamu Kurumu",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 1
+  },
+  {
+    "name": "Sistem Global Danışmanlık",
+    "url": "https://www.linkedin.com/company/sistemglobaldanismanlik/posts/?feedView=all",
+    "category": "Diğer",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 1
+  },
+  {
+    "name": "Sivil Toplum Geliştirme Merkezi(Stgm)",
+    "url": "http://www.stgm.org.tr/tr",
+    "category": "Sivil Toplum Kuruluşu",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 1
+  },
+  {
+    "name": "Sivil Toplum İçin Destek Vakfı",
+    "url": "https://siviltoplumdestek.org/haberler/",
+    "category": "Sivil Toplum Kuruluşu",
+    "css_selector": "",
+    "feed_url": "https://siviltoplumdestek.org/feed/",
+    "is_active": 1
+  },
+  {
+    "name": "Strateji Ve Bütçe Başkanlığı",
+    "url": "https://www.sbb.gov.tr/",
+    "category": "Kamu Kurumu",
+    "css_selector": "",
+    "feed_url": "https://www.sbb.gov.tr/feed/",
+    "is_active": 1
+  },
+  {
+    "name": "Tarım Ve Orman Bakanlığı",
+    "url": "https://www.tarimorman.gov.tr/",
+    "category": "Bakanlık",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 1
+  },
+  {
+    "name": "Tarım ve Kırsal Kalkınmayı Destekleme Kurumu",
+    "url": "https://www.tkdk.gov.tr/",
+    "category": "Kamu Kurumu",
+    "css_selector": "",
+    "feed_url": "https://www.tkdk.gov.tr/rss",
+    "is_active": 1
+  },
+  {
+    "name": "Ticaret Bakanlığı",
+    "url": "https://ticaret.gov.tr/",
+    "category": "Bakanlık",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 1
+  },
+  {
+    "name": "Trakya Kalkınma Ajansı",
+    "url": "https://www.trakyaka.org.tr/",
+    "category": "Kalkınma Ajansı",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 1
+  },
+  {
+    "name": "Ttgv (Türkiye Teknoloji Geliştirme Vakfı)",
+    "url": "https://ttgv.org.tr/programlar",
+    "category": "Sivil Toplum Kuruluşu",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 1
+  },
+  {
+    "name": "Türkiye Aile Sağlığı Ve Güvenliği Vakfı",
+    "url": "http://www.tapv.org.tr/",
+    "category": "Sivil Toplum Kuruluşu",
+    "css_selector": "",
+    "feed_url": "https://www.tapv.org.tr/feed/",
+    "is_active": 1
+  },
+  {
+    "name": "Türkiye Bilimsel ve Teknolojik Araştırma Kurumu",
+    "url": "https://www.tubitak.gov.tr/",
+    "category": "Kamu Kurumu",
+    "css_selector": "",
+    "feed_url": "https://www.tubitak.gov.tr/rss.xml",
+    "is_active": 1
+  },
+  {
+    "name": "Türkiye Sinai Kalkınma Bankası",
+    "url": "https://www.tskb.com.tr/",
+    "category": "Kamu Bankası",
+    "css_selector": "section.blogs",
+    "feed_url": "",
+    "is_active": 1
+  },
+  {
+    "name": "Ufuk Avrupa",
+    "url": "https://ufukavrupa.org.tr/tr",
+    "category": "Avrupa Birliği",
+    "css_selector": "",
+    "feed_url": "https://ufukavrupa.org.tr/rss.xml",
+    "is_active": 1
+  },
+  {
+    "name": "Ulusal Ajans",
+    "url": "https://www.ua.gov.tr/",
+    "category": "Kamu Kurumu",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 1
+  },
+  {
+    "name": "Yeşilay",
+    "url": "http://www.yesilay.org.tr/tr",
+    "category": "Sivil Toplum Kuruluşu",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 0
+  },
+  {
+    "name": "Zafer Kalkınma Ajansı",
+    "url": "https://zafer.gov.tr/",
+    "category": "Kalkınma Ajansı",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 1
+  },
+  {
+    "name": "Çalışma Ve Sosyal Güvenlik Bakanlığı Avrupa Birliği Ve Mali Yardımlar Dairesi Başkanlığı",
+    "url": "http://www.ikg.gov.tr/",
+    "category": "Kamu Kurumu",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 1
+  },
+  {
+    "name": "Çevre Ve Şehircilik Bakanlığı",
+    "url": "https://csb.gov.tr/",
+    "category": "Bakanlık",
+    "css_selector": "",
+    "feed_url": "https://csb.gov.tr/rss",
+    "is_active": 1
+  },
+  {
+    "name": "Çukurova Kalkınma Ajansı",
+    "url": "https://www.cka.org.tr/",
+    "category": "Kalkınma Ajansı",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 1
+  },
+  {
+    "name": "İpekyolu Kalkınma Ajansı",
+    "url": "https://ika.org.tr/",
+    "category": "Kalkınma Ajansı",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 1
+  },
+  {
+    "name": "İstanbul Kalkınma Ajansı",
+    "url": "https://www.istka.org.tr/",
+    "category": "Kalkınma Ajansı",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 1
+  },
+  {
+    "name": "İzmir Kalkınma Ajansı",
+    "url": "https://izka.org.tr/duyurular",
+    "category": "Kalkınma Ajansı",
+    "css_selector": "",
+    "feed_url": "https://izka.org.tr/feed/",
+    "is_active": 1
+  },
+  {
+    "name": "İşkur",
+    "url": "https://www.iskur.gov.tr/duyurular/",
+    "category": "Kamu Kurumu",
+    "css_selector": "",
+    "feed_url": "",
+    "is_active": 1
+  }
 ]

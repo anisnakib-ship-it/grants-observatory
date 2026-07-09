@@ -361,14 +361,15 @@
                 <label for="catFilter" class="sr-only">Filter by category</label>
                 <select id="catFilter" class="select-pill" aria-label="Filter by category">
                     <option value="" data-i18n="all_categories">All Categories</option>
-                    <option value="Bakanlik">Bakanlik</option>
+                    <option value="Bakanlık">Bakanlık</option>
                     <option value="Kamu Kurumu">Kamu Kurumu</option>
-                    <option value="Kalkinma Ajansi">Kalkinma Ajansi</option>
-                    <option value="AB/Uluslararasi">AB/Uluslararasi</option>
-                    <option value="NGO/Vakif">NGO/Vakif</option>
-                    <option value="Agregator">Agregator</option>
-                    <option value="Buyukelcilik">Buyukelcilik</option>
-                    <option value="Kamu Bankasi">Kamu Bankasi</option>
+                    <option value="Kalkınma Ajansı">Kalkınma Ajansı</option>
+                    <option value="Avrupa Birliği">Avrupa Birliği</option>
+                    <option value="Sivil Toplum Kuruluşu">Sivil Toplum Kuruluşu</option>
+                    <option value="Duyuru">Duyuru</option>
+                    <option value="Büyükelçilik">Büyükelçilik</option>
+                    <option value="Kamu Bankası">Kamu Bankası</option>
+                    <option value="Diğer">Diğer</option>
                 </select>
                 <label for="sourceFilter" class="sr-only">Filter by source</label>
                 <select id="sourceFilter" class="select-pill" aria-label="Filter by source">
@@ -518,14 +519,15 @@
                 <label for="siteCatFilter" class="sr-only">Filter sites by category</label>
                 <select id="siteCatFilter" class="select-pill" aria-label="Filter sites by category">
                     <option value="">All Categories</option>
-                    <option value="Bakanlik">Bakanlik</option>
+                    <option value="Bakanlık">Bakanlık</option>
                     <option value="Kamu Kurumu">Kamu Kurumu</option>
-                    <option value="Kalkinma Ajansi">Kalkinma Ajansi</option>
-                    <option value="AB/Uluslararasi">AB/Uluslararasi</option>
-                    <option value="NGO/Vakif">NGO/Vakif</option>
-                    <option value="Agregator">Agregator</option>
-                    <option value="Buyukelcilik">Buyukelcilik</option>
-                    <option value="Kamu Bankasi">Kamu Bankasi</option>
+                    <option value="Kalkınma Ajansı">Kalkınma Ajansı</option>
+                    <option value="Avrupa Birliği">Avrupa Birliği</option>
+                    <option value="Sivil Toplum Kuruluşu">Sivil Toplum Kuruluşu</option>
+                    <option value="Duyuru">Duyuru</option>
+                    <option value="Büyükelçilik">Büyükelçilik</option>
+                    <option value="Kamu Bankası">Kamu Bankası</option>
+                    <option value="Diğer">Diğer</option>
                 </select>
             </div>
 
@@ -649,9 +651,9 @@
     // ===== CATEGORY DATA FOR DONUT =====
     const catData = {{ cat_counts | tojson }};
     const CAT_COLORS = {
-        'Bakanlik':'#bc8cff','Kamu Kurumu':'#39d2c0','Kalkinma Ajansi':'#58a6ff',
-        'AB/Uluslararasi':'#d29922','NGO/Vakif':'#3fb950','Agregator':'#fb923c',
-        'Buyukelcilik':'#f778ba','Kamu Bankasi':'#818cf8','Sosyal Medya':'#94a3b8','Diger':'#484f58'
+        'Bakanlık':'#bc8cff','Kamu Kurumu':'#39d2c0','Kalkınma Ajansı':'#58a6ff',
+        'Avrupa Birliği':'#d29922','Sivil Toplum Kuruluşu':'#3fb950','Duyuru':'#fb923c',
+        'Büyükelçilik':'#f778ba','Kamu Bankası':'#818cf8','Diğer':'#484f58'
     };
 
     // ===== i18n TRANSLATIONS =====

@@ -24,7 +24,7 @@
         <input type="checkbox" class="pc-check" data-grant-id="{{ grant.id }}" aria-label="Select program">
     </label>
 
-    <span class="row-cat cat-{{ grant.site_category|lower|replace('/', '-')|replace(' ', '-') }}" title="{{ grant.site_category }}">{{ grant.site_category }}</span>
+    <span class="row-cat cat-{{ grant.site_category|catslug }}" title="{{ grant.site_category }}">{{ grant.site_category }}</span>
 
     <div class="row-titlewrap">
         {% if grant.item_type == 'news' %}<span class="row-flag news-type" title="Agency activity / news (not a funding call)">NEWS</span>{% endif %}

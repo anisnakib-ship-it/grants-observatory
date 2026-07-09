@@ -5,44 +5,44 @@ import database
 
 
 CATEGORY_MAP = {
-    "stgm": "NGO/Vakif",
-    "siviltoplumdestek": "NGO/Vakif",
-    "emb-japan": "Buyukelcilik",
-    "tapv": "NGO/Vakif",
-    "embassy.gov.au": "Buyukelcilik",
-    "usembassy": "Buyukelcilik",
-    "ttgv": "NGO/Vakif",
-    "kamer": "NGO/Vakif",
-    "eximbank": "Kamu Bankasi",
-    "yesilay": "NGO/Vakif",
+    "stgm": "Sivil Toplum Kuruluşu",
+    "siviltoplumdestek": "Sivil Toplum Kuruluşu",
+    "emb-japan": "Büyükelçilik",
+    "tapv": "Sivil Toplum Kuruluşu",
+    "embassy.gov.au": "Büyükelçilik",
+    "usembassy": "Büyükelçilik",
+    "ttgv": "Sivil Toplum Kuruluşu",
+    "kamer": "Sivil Toplum Kuruluşu",
+    "eximbank": "Kamu Bankası",
+    "yesilay": "Sivil Toplum Kuruluşu",
     "sgk.gov": "Kamu Kurumu",
     "iskur": "Kamu Kurumu",
-    "enhancerproject": "Agregator",
-    "sanayi.gov": "Bakanlik",
+    "enhancerproject": "Avrupa Birliği",
+    "sanayi.gov": "Bakanlık",
     "kosgeb": "Kamu Kurumu",
-    "ticaret.gov": "Bakanlik",
-    "ab-ilan": "Agregator",
-    "ab.gov": "Bakanlik",
+    "ticaret.gov": "Bakanlık",
+    "ab-ilan": "Duyuru",
+    "ab.gov": "Bakanlık",
     "ua.gov": "Kamu Kurumu",
-    "mfa.gov": "Bakanlik",
-    "csb.gov": "Bakanlik",
-    "enerji.gov": "Bakanlik",
-    "tarimorman": "Bakanlik",
-    "ufukavrupa": "AB/Uluslararasi",
+    "mfa.gov": "Bakanlık",
+    "csb.gov": "Bakanlık",
+    "enerji.gov": "Bakanlık",
+    "tarimorman": "Bakanlık",
+    "ufukavrupa": "Avrupa Birliği",
     "tubitak": "Kamu Kurumu",
-    "cbc.ab.gov": "AB/Uluslararasi",
-    "yatirimadestek": "Kalkinma Ajansi",
+    "cbc.ab.gov": "Avrupa Birliği",
+    "yatirimadestek": "Kalkınma Ajansı",
     "tkdk": "Kamu Kurumu",
-    "linkedin": "Sosyal Medya",
-    "gsb.gov": "Bakanlik",
+    "linkedin": "Diğer",
+    "gsb.gov": "Bakanlık",
     "cfcu.gov": "Kamu Kurumu",
-    "aile.gov": "Bakanlik",
-    "ktb.gov": "Bakanlik",
-    "tskb": "Kamu Bankasi",
+    "aile.gov": "Bakanlık",
+    "ktb.gov": "Bakanlık",
+    "tskb": "Kamu Bankası",
     "sbb.gov": "Kamu Kurumu",
-    "dokap": "Kalkinma Ajansi",
-    "gap.gov": "Kalkinma Ajansi",
-    "eeas.europa": "AB/Uluslararasi",
+    "dokap": "Bakanlık",
+    "gap.gov": "Bakanlık",
+    "eeas.europa": "Avrupa Birliği",
     "ikg.gov": "Kamu Kurumu",
 }
 
@@ -61,8 +61,8 @@ def categorize(url):
             return cat
     for kw in DEVELOPMENT_AGENCY_KEYWORDS:
         if kw in url_lower:
-            return "Kalkinma Ajansi"
-    return "Diger"
+            return "Kalkınma Ajansı"
+    return "Diğer"
 
 
 def seed_from_excel(filepath):

@@ -27,6 +27,22 @@ app = Flask(__name__)
 app.secret_key = config.SECRET_KEY
 app.jinja_env.filters["from_json"] = lambda s: json_module.loads(s) if isinstance(s, str) else s
 
+# Category -> stable ASCII slug for the color-coding CSS class, so Turkish
+# category names (e.g. "Kalkınma Ajansı") still resolve to ".cat-kalkinma-ajansi".
+_CAT_TR = str.maketrans({
+    "ç": "c", "Ç": "c", "ş": "s", "Ş": "s", "ğ": "g", "Ğ": "g",
+    "ü": "u", "Ü": "u", "ö": "o", "Ö": "o", "ı": "i", "İ": "i", "â": "a",
+})
+
+
+def _cat_slug(cat):
+    folded = (cat or "").translate(_CAT_TR).lower()
+    parts = "".join(ch if ch.isalnum() else "-" for ch in folded).split("-")
+    return "-".join(p for p in parts if p)
+
+
+app.jinja_env.filters["catslug"] = _cat_slug
+
 scan_lock = threading.Lock()
 scan_in_progress = False
 scheduler = None

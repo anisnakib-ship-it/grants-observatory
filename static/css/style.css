@@ -649,12 +649,11 @@ input, select { font-family: inherit; }
 .cat-bakanlik        { background: var(--purple-dim); color: var(--purple); }
 .cat-kamu-kurumu     { background: var(--cyan-dim); color: var(--cyan); }
 .cat-kalkinma-ajansi { background: var(--blue-dim); color: var(--blue); }
-.cat-ab-uluslararasi { background: var(--amber-dim); color: var(--amber); }
-.cat-ngo-vakif       { background: var(--green-dim); color: var(--green); }
-.cat-agregator       { background: rgba(251,146,60,0.12); color: #fb923c; }
+.cat-avrupa-birligi        { background: var(--amber-dim); color: var(--amber); }
+.cat-sivil-toplum-kurulusu { background: var(--green-dim); color: var(--green); }
+.cat-duyuru                { background: rgba(251,146,60,0.12); color: #fb923c; }
 .cat-buyukelcilik    { background: var(--pink-dim); color: var(--pink); }
 .cat-kamu-bankasi    { background: rgba(129,140,248,0.12); color: #818cf8; }
-.cat-sosyal-medya    { background: rgba(148,163,184,0.1); color: #94a3b8; }
 .cat-diger           { background: rgba(255,255,255,0.04); color: var(--text-3); }
 
 /* Load More */
