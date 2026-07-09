@@ -22,6 +22,10 @@ GRANT_KEYWORDS_STRONG = [
     "teknik destek program", "teknik destek", "teklif çağrı", "açık çağrı", "son başvuru",
     "ar-ge", "arge", "teşvik", "finansman", "çağrı", "grant", "funding",
     "call for proposals", "r&d", "support programme", "innovation fund",
+    # Subsidised credit / loan programmes are a funding instrument. Keep the
+    # phrase specific ("kredi program", not bare "kredi") so ordinary bank-loan
+    # news doesn't leak in. Catches e.g. KOSGEB "Yapay Zekâ Kredi Programı".
+    "kredi program",
 ]
 
 # Weak keywords — need at least MIN_WEAK_KEYWORD_MATCHES to match.
