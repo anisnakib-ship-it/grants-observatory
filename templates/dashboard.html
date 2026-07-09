@@ -309,20 +309,20 @@
                 <span class="stat-key" data-i18n="sources">Sources</span>
             </div>
             <div class="stat-div" aria-hidden="true"></div>
-            <div class="stat stat-hero" data-tip="Pending review">
-                <span class="stat-val counter accent-g" id="statPending" data-target="{{ stats.pending_grants }}">0</span>
-                <span class="stat-key" data-i18n="pending">Pending</span>
-                {% if stats.pending_grants > 0 %}<span class="stat-dot-live" aria-hidden="true"></span>{% endif %}
+            <div class="stat stat-hero" data-tip="Announcements in the list">
+                <span class="stat-val counter accent-g" id="statActive" data-target="{{ stats.active_grants }}">0</span>
+                <span class="stat-key" data-i18n="announcements">Announcements</span>
+                {% if stats.active_grants > 0 %}<span class="stat-dot-live" aria-hidden="true"></span>{% endif %}
             </div>
             <div class="stat-div" aria-hidden="true"></div>
-            <div class="stat" data-tip="Accepted grants">
-                <span class="stat-val counter" id="statAccepted" data-target="{{ stats.accepted_grants }}">0</span>
-                <span class="stat-key" data-i18n="accepted">Accepted</span>
+            <div class="stat" data-tip="Already emailed to the team">
+                <span class="stat-val counter" id="statSent" data-target="{{ stats.sent_grants }}">0</span>
+                <span class="stat-key" data-i18n="sent">Sent</span>
             </div>
             <div class="stat-div" aria-hidden="true"></div>
-            <div class="stat" data-tip="Rejected grants">
-                <span class="stat-val counter" id="statRejected" data-target="{{ stats.rejected_grants }}">0</span>
-                <span class="stat-key" data-i18n="rejected">Rejected</span>
+            <div class="stat" data-tip="Deleted (recoverable)">
+                <span class="stat-val counter" id="statDeleted" data-target="{{ stats.deleted_grants }}">0</span>
+                <span class="stat-key" data-i18n="deleted">Deleted</span>
             </div>
             <div class="stat-div" aria-hidden="true"></div>
             <div class="stat" data-tip="Last completed scan">
@@ -338,22 +338,17 @@
         <!-- ======================== GRANTS VIEW ======================== -->
         <section id="view-grants" class="view active" role="tabpanel" aria-labelledby="tab-grants">
 
-            <!-- Sub-tabs: Inbox / Accepted / Rejected -->
+            <!-- Sub-tabs: Announcements / Deleted -->
             <div class="sub-tabs" id="grantSubTabs">
-                <button class="sub-tab active" data-subtab="inbox">
+                <button class="sub-tab active" data-subtab="active">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
-                    <span data-i18n="inbox">Inbox</span>
-                    {% if stats.pending_grants > 0 %}<span class="sub-tab-badge" id="inboxBadge">{{ stats.pending_grants }}</span>{% endif %}
+                    <span data-i18n="announcements">Announcements</span>
+                    {% if stats.active_grants > 0 %}<span class="sub-tab-badge" id="activeBadge">{{ stats.active_grants }}</span>{% endif %}
                 </button>
-                <button class="sub-tab" data-subtab="accepted">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-                    <span data-i18n="accepted">Accepted</span>
-                    <span class="sub-tab-count">{{ stats.accepted_grants }}</span>
-                </button>
-                <button class="sub-tab" data-subtab="rejected">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                    <span data-i18n="rejected">Rejected</span>
-                    <span class="sub-tab-count">{{ stats.rejected_grants }}</span>
+                <button class="sub-tab" data-subtab="deleted">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    <span data-i18n="deleted">Deleted</span>
+                    <span class="sub-tab-count">{{ stats.deleted_grants }}</span>
                 </button>
             </div>
 
@@ -405,10 +400,6 @@
                     <span data-i18n="hide_expired">Hide expired</span>
                 </label>
                 <button type="button" id="clearFilters" class="select-pill" data-i18n="clear_filters">Clear</button>
-                <button type="button" id="sendTeamBtn" class="select-pill send-team-btn" title="Email accepted programs to the team">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 4h16v16H4z" fill="none"/><polyline points="22,6 12,13 2,6"/><rect x="2" y="4" width="20" height="16" rx="2"/></svg>
-                    <span data-i18n="send_to_team">Send accepted to team</span>
-                </button>
             </div>
 
             <!-- Bulk action bar (appears when programs are selected) -->
@@ -419,15 +410,18 @@
                 </label>
                 <span class="bulk-count" id="bulkCount">0</span>
                 <div class="bulk-actions">
-                    <button class="btn-accept" id="bulkAcceptBtn" data-bulk="accepted"><span data-i18n="accept">Accept</span></button>
-                    <button class="btn-reject" id="bulkRejectBtn" data-bulk="rejected"><span data-i18n="reject">Reject</span></button>
-                    <button class="btn-restore" id="bulkRestoreBtn" data-bulk="pending"><span data-i18n="restore">Restore</span></button>
+                    <button class="btn-send" id="bulkSendBtn" title="Email selected announcements to the team">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                        <span data-i18n="send_selected">Send selected</span>
+                    </button>
+                    <button class="btn-delete" id="bulkDeleteBtn"><span data-i18n="delete_selected">Delete selected</span></button>
+                    <button class="btn-restore" id="bulkRestoreBtn"><span data-i18n="restore_selected">Restore selected</span></button>
                     <button class="select-pill" id="bulkClearBtn" data-i18n="clear_selection">Clear selection</button>
                 </div>
             </div>
 
-            <!-- Category Donut Chart (accepted only) -->
-            {% if accepted_grants %}
+            <!-- Category Donut Chart -->
+            {% if active_grants %}
             <div class="category-bar" id="donutWrap" style="display:none;">
                 <canvas id="donutCanvas" width="140" height="140" aria-label="Grant distribution by category" role="img"></canvas>
                 <div class="cat-legend" id="catLegend"></div>
@@ -436,8 +430,8 @@
 
             {# Grant card macro lives in _macros.html and is shared with /api/grants/cards #}
 
-            <!-- ===== INBOX (Pending) ===== -->
-            <div class="grants-panel active" id="panel-inbox">
+            <!-- ===== ANNOUNCEMENTS (active list) ===== -->
+            <div class="grants-panel active" id="panel-active">
                 <div class="grants-table-head" aria-hidden="true">
                     <span class="th th-select"></span>
                     <span class="th th-cat" data-i18n="category">Category</span>
@@ -447,10 +441,10 @@
                     <span class="th th-deadline" data-i18n="deadline">Deadline</span>
                     <span class="th th-actions"></span>
                 </div>
-                <div class="grants-grid" id="grantsGrid" data-total="{{ pending_total }}">
-                    {% if pending_grants %}
-                        {% for grant in pending_grants %}
-                            {{ grant_card(grant, 'inbox', loop.index0, today) }}
+                <div class="grants-grid" id="activeGrid" data-total="{{ active_total }}">
+                    {% if active_grants %}
+                        {% for grant in active_grants %}
+                            {{ grant_card(grant, 'active', loop.index0, today) }}
                         {% endfor %}
                     {% else %}
                         <div class="empty-hero">
@@ -461,8 +455,8 @@
                                 <div class="radar-sweep"></div>
                                 <div class="radar-center"></div>
                             </div>
-                            <h2 data-i18n="inbox_empty">Inbox is empty</h2>
-                            <p data-i18n="inbox_empty_desc">All programs have been reviewed. Run a new scan to discover more.</p>
+                            <h2 data-i18n="list_empty">No announcements</h2>
+                            <p data-i18n="list_empty_desc">Run a new scan to discover today's announcements.</p>
                             <button class="scan-btn large" id="firstScanBtn">
                                 <span class="scan-btn-bg" aria-hidden="true"></span>
                                 <svg class="scan-btn-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
@@ -473,8 +467,8 @@
                 </div>
             </div>
 
-            <!-- ===== ACCEPTED ===== -->
-            <div class="grants-panel" id="panel-accepted" style="display:none;">
+            <!-- ===== DELETED (recovery) ===== -->
+            <div class="grants-panel" id="panel-deleted" style="display:none;">
                 <div class="grants-table-head" aria-hidden="true">
                     <span class="th th-select"></span>
                     <span class="th th-cat" data-i18n="category">Category</span>
@@ -484,40 +478,15 @@
                     <span class="th th-deadline" data-i18n="deadline">Deadline</span>
                     <span class="th th-actions"></span>
                 </div>
-                <div class="grants-grid" id="acceptedGrid" data-total="{{ accepted_total }}">
-                    {% if accepted_grants %}
-                        {% for grant in accepted_grants %}
-                            {{ grant_card(grant, 'accepted', loop.index0, today) }}
+                <div class="grants-grid" id="deletedGrid" data-total="{{ deleted_total }}">
+                    {% if deleted_grants %}
+                        {% for grant in deleted_grants %}
+                            {{ grant_card(grant, 'deleted', loop.index0, today) }}
                         {% endfor %}
                     {% else %}
                         <div class="empty-hero small">
-                            <h2 data-i18n="no_accepted">No accepted programs yet</h2>
-                            <p data-i18n="no_accepted_desc">Accept programs from the Inbox to save them here.</p>
-                        </div>
-                    {% endif %}
-                </div>
-            </div>
-
-            <!-- ===== REJECTED ===== -->
-            <div class="grants-panel" id="panel-rejected" style="display:none;">
-                <div class="grants-table-head" aria-hidden="true">
-                    <span class="th th-select"></span>
-                    <span class="th th-cat" data-i18n="category">Category</span>
-                    <span class="th th-title" data-i18n="program">Program</span>
-                    <span class="th th-source" data-i18n="source">Source</span>
-                    <span class="th th-date" data-i18n="date">Date</span>
-                    <span class="th th-deadline" data-i18n="deadline">Deadline</span>
-                    <span class="th th-actions"></span>
-                </div>
-                <div class="grants-grid" id="rejectedGrid" data-total="{{ rejected_total }}">
-                    {% if rejected_grants %}
-                        {% for grant in rejected_grants %}
-                            {{ grant_card(grant, 'rejected', loop.index0, today) }}
-                        {% endfor %}
-                    {% else %}
-                        <div class="empty-hero small">
-                            <h2 data-i18n="no_rejected">No rejected programs</h2>
-                            <p data-i18n="no_rejected_desc">Programs you reject will appear here.</p>
+                            <h2 data-i18n="no_deleted">Nothing deleted</h2>
+                            <p data-i18n="no_deleted_desc">Announcements you delete appear here and can be restored.</p>
                         </div>
                     {% endif %}
                 </div>
@@ -801,27 +770,27 @@
             toast_scanning: 'Scanning all sources...',
             toast_activated: 'Source activated',
             toast_paused: 'Source paused',
-            toast_accepted: 'Program accepted',
-            toast_rejected: 'Program rejected',
-            toast_restored: 'Program restored to inbox',
+            toast_deleted: 'Announcement deleted',
+            toast_restored: 'Announcement restored',
             // Site cards
             active: 'Active',
             paused: 'Paused',
             never_checked: 'Never checked',
-            // Triage
-            inbox: 'Inbox',
-            pending: 'Pending',
-            accepted: 'Accepted',
-            rejected: 'Rejected',
-            accept: 'Accept',
-            reject: 'Reject',
+            // Announcements list
+            announcements: 'Announcements',
+            deleted: 'Deleted',
+            sent: 'Sent',
+            sent_badge: 'SENT',
+            delete: 'Delete',
             restore: 'Restore',
-            inbox_empty: 'Inbox is empty',
-            inbox_empty_desc: 'All programs have been reviewed. Run a new scan to discover more.',
-            no_accepted: 'No accepted programs yet',
-            no_accepted_desc: 'Accept programs from the Inbox to save them here.',
-            no_rejected: 'No rejected programs',
-            no_rejected_desc: 'Programs you reject will appear here.',
+            send_selected: 'Send selected',
+            delete_selected: 'Delete selected',
+            restore_selected: 'Restore selected',
+            confirm_send_selected: 'Email {0} selected announcement(s) to the team?',
+            list_empty: 'No announcements',
+            list_empty_desc: "Run a new scan to discover today's announcements.",
+            no_deleted: 'Nothing deleted',
+            no_deleted_desc: 'Announcements you delete appear here and can be restored.',
         },
         tr: {
             monitoring_sources: '{0} kaynak izleniyor',
@@ -927,25 +896,25 @@
             toast_scanning: 'Tüm kaynaklar taranıyor...',
             toast_activated: 'Kaynak etkinleştirildi',
             toast_paused: 'Kaynak duraklatıldı',
-            toast_accepted: 'Program kabul edildi',
-            toast_rejected: 'Program reddedildi',
-            toast_restored: 'Program gelen kutusuna geri alındı',
+            toast_deleted: 'Duyuru silindi',
+            toast_restored: 'Duyuru geri alındı',
             active: 'Aktif',
             paused: 'Duraklatıldı',
             never_checked: 'Henüz kontrol edilmedi',
-            inbox: 'Gelen Kutusu',
-            pending: 'Bekleyen',
-            accepted: 'Kabul Edilenler',
-            rejected: 'Reddedilenler',
-            accept: 'Kabul Et',
-            reject: 'Reddet',
+            announcements: 'Duyurular',
+            deleted: 'Silinenler',
+            sent: 'Gönderildi',
+            sent_badge: 'GÖNDERİLDİ',
+            delete: 'Sil',
             restore: 'Geri Al',
-            inbox_empty: 'Gelen kutusu boş',
-            inbox_empty_desc: 'Tüm programlar incelendi. Daha fazla keşfetmek için yeni bir tarama çalıştırın.',
-            no_accepted: 'Henüz kabul edilen program yok',
-            no_accepted_desc: 'Gelen kutusundan programları kabul ederek buraya kaydedin.',
-            no_rejected: 'Reddedilen program yok',
-            no_rejected_desc: 'Reddettiğiniz programlar burada görünecek.',
+            send_selected: 'Seçilenleri gönder',
+            delete_selected: 'Seçilenleri sil',
+            restore_selected: 'Seçilenleri geri al',
+            confirm_send_selected: 'Seçilen {0} duyuru ekibe e-posta ile gönderilsin mi?',
+            list_empty: 'Duyuru yok',
+            list_empty_desc: 'Bugünün duyurularını keşfetmek için yeni bir tarama çalıştırın.',
+            no_deleted: 'Silinen bir şey yok',
+            no_deleted_desc: 'Sildiğiniz duyurular burada görünür ve geri alınabilir.',
         }
     };
 
@@ -1107,14 +1076,13 @@
         toast(msg, errs > 0 ? 'info' : 'success');
 
         setText('statSources', stats.total_sites);
-        setText('statPending', stats.pending_grants);
-        setText('statAccepted', stats.accepted_grants);
-        setText('statRejected', stats.rejected_grants);
+        setText('statActive', stats.active_grants);
+        setText('statSent', stats.sent_grants);
+        setText('statDeleted', stats.deleted_grants);
         if (ls.finished_at) setText('statLastScan', ls.finished_at.substring(11, 16));
 
-        gridTotal.pending = stats.pending_grants;
-        gridTotal.accepted = stats.accepted_grants;
-        gridTotal.rejected = stats.rejected_grants;
+        gridTotal.active = stats.active_grants;
+        gridTotal.deleted = stats.deleted_grants;
         refreshBadges();
         await loadGrid(activeStatus, false);
     }
@@ -1149,8 +1117,8 @@
                 updateGridChrome(activeStatus);
                 refreshBadges();
             }, 300);
-            const msgs = { accept: t('toast_accepted'), reject: t('toast_rejected'), restore: t('toast_restored') };
-            toast(msgs[action] || 'Done', action === 'reject' ? 'info' : 'success');
+            const msgs = { delete: t('toast_deleted'), restore: t('toast_restored') };
+            toast(msgs[action] || 'Done', action === 'delete' ? 'info' : 'success');
         } catch(e) { el.disabled = false; }
     }
 
@@ -1183,15 +1151,26 @@
         cb.disabled = false;
     }
 
-    function sendAcceptedToTeam() {
-        confirmAction(t('confirm_send_team'), async function() {
-            const btn = document.getElementById('sendTeamBtn');
+    function sendSelected() {
+        const ids = selectedChecks().map(c => parseInt(c.dataset.grantId, 10));
+        if (!ids.length) return;
+        confirmAction(t('confirm_send_selected', ids.length), async function() {
+            const btn = document.getElementById('bulkSendBtn');
             btn.disabled = true;
             try {
-                const r = await fetch('/api/email/accepted', { method: 'POST', headers: {'Content-Type':'application/json'} });
+                const r = await fetch('/api/grants/send', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ids: ids })
+                });
                 const d = await r.json();
-                if (r.ok) toast(t('toast_team_sent', d.sent), 'success');
-                else toast(d.error || 'failed', 'error');
+                if (r.ok) {
+                    toast(t('toast_team_sent', d.sent), 'success');
+                    await loadGrid(activeStatus, false);
+                    refreshBadges();
+                } else {
+                    toast(d.error || 'failed', 'error');
+                }
             } catch(e) { toast('' + e.message, 'error'); }
             btn.disabled = false;
         });
@@ -1220,10 +1199,11 @@
         filterGrants();
     }
     // ===================== SERVER-DRIVEN GRANT GRID =====================
-    const GRID_BY_STATUS = { pending: 'grantsGrid', accepted: 'acceptedGrid', rejected: 'rejectedGrid' };
-    const gridLoaded = { pending: 0, accepted: 0, rejected: 0 };
-    const gridTotal = { pending: null, accepted: null, rejected: null };
-    let activeStatus = 'pending';
+    // Views are the two lists: 'active' (announcements) and 'deleted' (recovery).
+    const GRID_BY_STATUS = { active: 'activeGrid', deleted: 'deletedGrid' };
+    const gridLoaded = { active: 0, deleted: 0 };
+    const gridTotal = { active: null, deleted: null };
+    let activeStatus = 'active';
     let gridReqSeq = 0;
 
     function monthsAgoISO(n) {
@@ -1266,7 +1246,7 @@
     }
     function buildGridQuery(status, offset) {
         const f = currentFilters();
-        const p = new URLSearchParams({ status: status, offset: offset, sort: f.sort });
+        const p = new URLSearchParams({ view: status, offset: offset, sort: f.sort });
         if (f.q) p.set('q', f.q);
         if (f.category) p.set('category', f.category);
         if (f.source) p.set('source', f.source);
@@ -1329,9 +1309,10 @@
         const checks = selectedChecks();
         document.getElementById('bulkCount').textContent = checks.length;
         document.getElementById('bulkBar').style.display = checks.length ? 'flex' : 'none';
-        document.getElementById('bulkRestoreBtn').style.display = (activeStatus === 'pending') ? 'none' : '';
-        document.getElementById('bulkAcceptBtn').style.display = (activeStatus === 'accepted') ? 'none' : '';
-        document.getElementById('bulkRejectBtn').style.display = (activeStatus === 'rejected') ? 'none' : '';
+        const inDeleted = (activeStatus === 'deleted');
+        document.getElementById('bulkSendBtn').style.display = inDeleted ? 'none' : '';
+        document.getElementById('bulkDeleteBtn').style.display = inDeleted ? 'none' : '';
+        document.getElementById('bulkRestoreBtn').style.display = inDeleted ? '' : 'none';
         const g = activeGridEl();
         const all = g ? g.querySelectorAll('.pc-check').length : 0;
         const sa = document.getElementById('selectAllCheck');
@@ -1350,14 +1331,14 @@
         if (g) g.querySelectorAll('.pc-check').forEach(c => { c.checked = on; c.closest('.program-card').classList.toggle('selected', on); });
         syncSelectionUI();
     }
-    async function bulkTriage(newStatus) {
+    async function bulkAction(action) {
         const ids = selectedChecks().map(c => parseInt(c.dataset.grantId, 10));
         if (!ids.length) return;
         try {
             await safeFetch('/api/grants/bulk', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ids: ids, status: newStatus })
+                body: JSON.stringify({ ids: ids, action: action })
             });
             toast(t('toast_bulk_done', ids.length), 'success');
             await loadGrid(activeStatus, false);
@@ -1374,16 +1355,13 @@
         try {
             const d = await safeFetch('/api/scan-status');
             const s = d.stats || {};
-            setBadge('inboxBadge', s.pending_grants);
-            const acc = document.querySelector('.sub-tab[data-subtab="accepted"] .sub-tab-count');
-            if (acc) acc.textContent = s.accepted_grants;
-            const rej = document.querySelector('.sub-tab[data-subtab="rejected"] .sub-tab-count');
-            if (rej) rej.textContent = s.rejected_grants;
+            setBadge('activeBadge', s.active_grants);
+            const del = document.querySelector('.sub-tab[data-subtab="deleted"] .sub-tab-count');
+            if (del) del.textContent = s.deleted_grants;
             const tabBadge = document.getElementById('tabBadge');
-            if (tabBadge) { if (s.pending_grants > 0) tabBadge.textContent = s.pending_grants; else tabBadge.remove(); }
-            gridTotal.pending = s.pending_grants;
-            gridTotal.accepted = s.accepted_grants;
-            gridTotal.rejected = s.rejected_grants;
+            if (tabBadge) { if (s.active_grants > 0) tabBadge.textContent = s.active_grants; else tabBadge.remove(); }
+            gridTotal.active = s.active_grants;
+            gridTotal.deleted = s.deleted_grants;
             updateGridChrome(activeStatus);
         } catch (e) {}
     }
@@ -1869,25 +1847,20 @@
                 panel.classList.add('active');
                 // Switch active status and (re)load this grid with current filters.
                 activeStatus = btn.dataset.subtab;
+                clearSelection();
                 loadGrid(activeStatus, false);
-                // Show donut only on accepted tab
+                // Show the category donut only on the announcements list.
                 const donut = document.getElementById('donutWrap');
-                if (donut) donut.style.display = btn.dataset.subtab === 'accepted' ? '' : 'none';
+                if (donut) donut.style.display = btn.dataset.subtab === 'active' ? '' : 'none';
             });
         });
 
         // Card click handler for all grids
         function handleCardClick(e) {
-            const acceptBtn = e.target.closest('.btn-accept');
-            if (acceptBtn) {
+            const deleteBtn = e.target.closest('.btn-delete');
+            if (deleteBtn) {
                 e.preventDefault();
-                triageGrant(acceptBtn.dataset.grantId, 'accept', acceptBtn);
-                return;
-            }
-            const rejectBtn = e.target.closest('.btn-reject');
-            if (rejectBtn) {
-                e.preventDefault();
-                triageGrant(rejectBtn.dataset.grantId, 'reject', rejectBtn);
+                triageGrant(deleteBtn.dataset.grantId, 'delete', deleteBtn);
                 return;
             }
             const restoreBtn = e.target.closest('.btn-restore');
@@ -1909,13 +1882,16 @@
                 if (card) openGrantDetail(card);
                 return;
             }
+            // Ignore clicks on the select checkbox/label so ticking a row selects
+            // it instead of opening the detail modal.
+            if (e.target.closest('.row-select')) return;
             const card = e.target.closest('.program-card');
             if (card && !e.target.closest('a') && !e.target.closest('button')) {
                 openGrantDetail(card);
             }
         }
 
-        ['grantsGrid', 'acceptedGrid', 'rejectedGrid'].forEach(function(gid) {
+        ['activeGrid', 'deletedGrid'].forEach(function(gid) {
             const g = document.getElementById(gid);
             if (!g) return;
             g.addEventListener('click', handleCardClick);
@@ -1929,18 +1905,18 @@
         });
 
         // Initialise grid pagination state from the server-rendered first page.
-        ['pending', 'accepted', 'rejected'].forEach(function(st) {
+        ['active', 'deleted'].forEach(function(st) {
             const g = document.getElementById(GRID_BY_STATUS[st]);
             gridLoaded[st] = g ? g.querySelectorAll('.program-card').length : 0;
             gridTotal[st] = g ? (parseInt(g.dataset.total || '0', 10)) : 0;
         });
-        updateGridChrome('pending');
+        updateGridChrome('active');
 
         // Bulk action bar
         document.getElementById('selectAllCheck').addEventListener('change', toggleSelectAll);
-        document.getElementById('bulkAcceptBtn').addEventListener('click', function(){ bulkTriage('accepted'); });
-        document.getElementById('bulkRejectBtn').addEventListener('click', function(){ bulkTriage('rejected'); });
-        document.getElementById('bulkRestoreBtn').addEventListener('click', function(){ bulkTriage('pending'); });
+        document.getElementById('bulkSendBtn').addEventListener('click', sendSelected);
+        document.getElementById('bulkDeleteBtn').addEventListener('click', function(){ bulkAction('delete'); });
+        document.getElementById('bulkRestoreBtn').addEventListener('click', function(){ bulkAction('restore'); });
         document.getElementById('bulkClearBtn').addEventListener('click', clearSelection);
 
         // Site toggles via delegation
@@ -1971,7 +1947,6 @@
         document.getElementById('hideExpired').addEventListener('change', filterGrants);
         document.getElementById('sortFilter').addEventListener('change', sortGrants);
         document.getElementById('clearFilters').addEventListener('click', clearFilters);
-        document.getElementById('sendTeamBtn').addEventListener('click', sendAcceptedToTeam);
         document.getElementById('siteSearch').addEventListener('input', filterSites);
         document.getElementById('siteCatFilter').addEventListener('change', filterSites);
 

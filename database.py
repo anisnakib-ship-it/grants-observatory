@@ -180,10 +180,21 @@ def init_db():
         "published_date": "TEXT DEFAULT ''",
         "deadline_date": "TEXT DEFAULT ''",
         "item_type": "TEXT DEFAULT 'funding'",
+        # New flat-list model: sent_at stamps when an announcement was emailed
+        # (drives the "Sent" badge); is_deleted soft-hides it (kept so a future
+        # scan won't re-add it via URL dedup). Replaces the accept/reject split.
+        "sent_at": "TEXT DEFAULT ''",
+        "is_deleted": "INTEGER DEFAULT 0",
     }
     newly_added = [col for col in new_cols if col not in existing_cols]
     for col in newly_added:
         cursor.execute(f"ALTER TABLE grants ADD COLUMN {col} {new_cols[col]}")
+
+    # One-time migration from the old accept/reject model to the flat list:
+    # everything previously 'rejected' becomes soft-deleted (hidden but
+    # recoverable); 'accepted'/'pending' stay in the active list.
+    if "is_deleted" in newly_added:
+        cursor.execute("UPDATE grants SET is_deleted = 1 WHERE status = 'rejected'")
 
     # Sites migration: feed_url holds a validated RSS/Atom feed for sites that
     # publish one (ingested via feeds for reliable publish dates).
@@ -310,7 +321,7 @@ def add_grant(site_id, title, url, description="", keywords_matched=None, publis
         conn.close()
 
 
-def get_recent_grants(limit=100, unread_only=False, status_filter=None):
+def get_recent_grants(limit=100, unread_only=False, status_filter=None, include_deleted=False):
     conn = get_connection()
     try:
         query = """
@@ -320,6 +331,8 @@ def get_recent_grants(limit=100, unread_only=False, status_filter=None):
         """
         conditions = []
         params = []
+        if not include_deleted:
+            conditions.append("g.is_deleted = 0")
         if unread_only:
             conditions.append("g.is_read = 0")
         if status_filter:
@@ -352,12 +365,22 @@ _RELEASE_EXPR = "COALESCE(NULLIF(g.published_date, ''), substr(g.found_at, 1, 10
 
 def query_grants(status=None, category=None, source=None, q=None, days=None,
                  has_deadline=False, released_after=None, released_before=None,
-                 hide_expired=False, sort="date-desc", limit=30, offset=0):
-    """Filter the whole grants archive in SQL. Returns (rows, total_matching)."""
+                 hide_expired=False, sort="date-desc", limit=30, offset=0,
+                 deleted=False, sent=None):
+    """Filter the whole grants archive in SQL. Returns (rows, total_matching).
+
+    deleted: False -> active list only; True -> soft-deleted only; None -> both.
+    sent:    True  -> only already-sent; False -> only not-yet-sent; None -> both.
+    """
     conn = get_connection()
     try:
         conditions = []
         params = []
+        if deleted is not None:
+            conditions.append("g.is_deleted = ?")
+            params.append(1 if deleted else 0)
+        if sent is not None:
+            conditions.append("g.sent_at != ''" if sent else "g.sent_at = ''")
         if status:
             conditions.append("g.status = ?")
             params.append(status)
@@ -455,11 +478,69 @@ def reset_content_hashes():
 
 
 def clear_pending_grants():
-    """Delete pending programs (keeps accepted/rejected triage). Used to rebuild
-    the pending set for a new date range. Returns the number removed."""
+    """Delete un-acted-on announcements to rebuild the list for a new date range.
+    Spares Sent ones (a record of what went out) and soft-deleted ones (so they
+    stay hidden and aren't re-added by the next scan). Returns the number removed."""
     conn = get_connection()
     try:
-        cur = conn.execute("DELETE FROM grants WHERE status = 'pending'")
+        cur = conn.execute(
+            "DELETE FROM grants WHERE (sent_at IS NULL OR sent_at = '') AND is_deleted = 0"
+        )
+        conn.commit()
+        return cur.rowcount
+    finally:
+        conn.close()
+
+
+def mark_grants_sent(grant_ids):
+    """Stamp sent_at on the given ids (only if not already sent). Returns the
+    number newly stamped."""
+    if not grant_ids:
+        return 0
+    conn = get_connection()
+    try:
+        now = datetime.utcnow().isoformat()
+        placeholders = ",".join("?" * len(grant_ids))
+        cur = conn.execute(
+            f"UPDATE grants SET sent_at = ? WHERE id IN ({placeholders}) "
+            f"AND (sent_at IS NULL OR sent_at = '')",
+            [now] + list(grant_ids),
+        )
+        conn.commit()
+        return cur.rowcount
+    finally:
+        conn.close()
+
+
+def soft_delete_grants(grant_ids):
+    """Hide the given ids (is_deleted=1). The rows stay so URL dedup keeps a
+    future scan from re-adding them. Returns the number hidden."""
+    if not grant_ids:
+        return 0
+    conn = get_connection()
+    try:
+        placeholders = ",".join("?" * len(grant_ids))
+        cur = conn.execute(
+            f"UPDATE grants SET is_deleted = 1 WHERE id IN ({placeholders})",
+            list(grant_ids),
+        )
+        conn.commit()
+        return cur.rowcount
+    finally:
+        conn.close()
+
+
+def restore_deleted(grant_ids):
+    """Un-hide soft-deleted ids (is_deleted=0). Returns the number restored."""
+    if not grant_ids:
+        return 0
+    conn = get_connection()
+    try:
+        placeholders = ",".join("?" * len(grant_ids))
+        cur = conn.execute(
+            f"UPDATE grants SET is_deleted = 0 WHERE id IN ({placeholders})",
+            list(grant_ids),
+        )
         conn.commit()
         return cur.rowcount
     finally:
@@ -523,9 +604,13 @@ def get_stats():
         stats["total_grants"] = conn.execute("SELECT COUNT(*) FROM grants").fetchone()[0]
         stats["new_grants"] = conn.execute("SELECT COUNT(*) FROM grants WHERE is_new = 1").fetchone()[0]
         stats["unread_grants"] = conn.execute("SELECT COUNT(*) FROM grants WHERE is_read = 0").fetchone()[0]
-        stats["pending_grants"] = conn.execute("SELECT COUNT(*) FROM grants WHERE status = 'pending'").fetchone()[0]
-        stats["accepted_grants"] = conn.execute("SELECT COUNT(*) FROM grants WHERE status = 'accepted'").fetchone()[0]
-        stats["rejected_grants"] = conn.execute("SELECT COUNT(*) FROM grants WHERE status = 'rejected'").fetchone()[0]
+        # Flat-list model: active = visible announcements, sent = already emailed,
+        # deleted = soft-hidden. (pending_grants kept as an alias for active so any
+        # older callers / the scan-status payload keep working.)
+        stats["active_grants"] = conn.execute("SELECT COUNT(*) FROM grants WHERE is_deleted = 0").fetchone()[0]
+        stats["sent_grants"] = conn.execute("SELECT COUNT(*) FROM grants WHERE sent_at != '' AND is_deleted = 0").fetchone()[0]
+        stats["deleted_grants"] = conn.execute("SELECT COUNT(*) FROM grants WHERE is_deleted = 1").fetchone()[0]
+        stats["pending_grants"] = stats["active_grants"]
         stats["sites_with_errors"] = conn.execute("SELECT COUNT(*) FROM sites WHERE last_status = 'error' AND is_active = 1").fetchone()[0]
 
         last_scan = conn.execute("SELECT * FROM scan_logs ORDER BY started_at DESC LIMIT 1").fetchone()

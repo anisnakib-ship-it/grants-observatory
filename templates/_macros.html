@@ -12,7 +12,8 @@
          data-desc="{{ grant.description or '' }}"
          data-keywords="{{ grant.keywords_matched or '[]' }}"
          data-details-scraped="{{ grant.details_scraped or 0 }}"
-         data-status="{{ grant.status or 'pending' }}"
+         data-sent="{{ 1 if grant.sent_at else 0 }}"
+         data-deleted="{{ grant.is_deleted or 0 }}"
          data-deadline="{{ grant.deadline or '' }}"
          data-deadline-date="{{ grant.deadline_date or '' }}"
          data-last-seen="{{ grant.last_seen_at or grant.found_at or '' }}"
@@ -35,6 +36,11 @@
         {% else %}
         <span class="row-flag proxy" title="No publish date on the source — kept because it was first seen today">~ NEW-TODAY</span>
         {% endif %}
+        {% if grant.sent_at %}
+        <span class="row-flag sent" title="Emailed to the team on {{ grant.sent_at[:10] }}">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg><span data-i18n="sent_badge">SENT</span>
+        </span>
+        {% endif %}
     </div>
 
     <span class="row-source" title="{{ grant.site_name }}">
@@ -53,16 +59,13 @@
     </span>
 
     <div class="row-actions">
-        {% if card_mode == 'inbox' %}
-        <button class="btn-accept" data-grant-id="{{ grant.id }}" title="Accept" data-i18n-title="accept">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-        </button>
-        <button class="btn-reject" data-grant-id="{{ grant.id }}" title="Reject" data-i18n-title="reject">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
-        {% elif card_mode == 'rejected' %}
+        {% if card_mode == 'deleted' %}
         <button class="btn-restore" data-grant-id="{{ grant.id }}" title="Restore" data-i18n-title="restore">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+        </button>
+        {% else %}
+        <button class="btn-delete" data-grant-id="{{ grant.id }}" title="Delete" data-i18n-title="delete">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
         </button>
         {% endif %}
         <button class="btn-expand" aria-label="View full details" data-grant-id="{{ grant.id }}" title="Details">

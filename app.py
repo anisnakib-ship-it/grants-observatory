@@ -70,15 +70,14 @@ def scheduled_scan():
 @app.route("/")
 def dashboard():
     stats = database.get_stats()
-    # First page of each status (expired hidden by default, matching the UI toggle);
-    # the rest is loaded/filtered via /api/grants/cards.
-    pending_grants, pending_total = database.query_grants(status="pending", hide_expired=True, limit=GRANTS_PAGE_SIZE)
-    accepted_grants, accepted_total = database.query_grants(status="accepted", hide_expired=True, limit=GRANTS_PAGE_SIZE)
-    rejected_grants, rejected_total = database.query_grants(status="rejected", hide_expired=True, limit=GRANTS_PAGE_SIZE)
+    # First page of the active list and the deleted (recovery) list; expired hidden
+    # by default to match the UI toggle. The rest is loaded via /api/grants/cards.
+    active_grants, active_total = database.query_grants(deleted=False, hide_expired=True, limit=GRANTS_PAGE_SIZE)
+    deleted_grants, deleted_total = database.query_grants(deleted=True, hide_expired=True, limit=GRANTS_PAGE_SIZE)
     sites = database.get_all_sites(active_only=False)
     scan_history = database.get_scan_history(limit=10)
-    # Category distribution for donut chart (all accepted, not just first page)
-    cat_counts = database.category_counts(status="accepted")
+    # Category distribution for the donut chart (active announcements).
+    cat_counts = database.category_counts()
     site_cat_counts = {}
     for s in sites:
         cat = s.get("category", "Diger")
@@ -86,18 +85,16 @@ def dashboard():
     return render_template(
         "dashboard.html",
         stats=stats,
-        pending_grants=pending_grants,
-        accepted_grants=accepted_grants,
-        rejected_grants=rejected_grants,
+        active_grants=active_grants,
+        deleted_grants=deleted_grants,
         sites=sites,
         scan_history=scan_history,
         scan_in_progress=scan_in_progress,
         config=config,
         cat_counts=cat_counts,
         site_cat_counts=site_cat_counts,
-        pending_total=pending_total,
-        accepted_total=accepted_total,
-        rejected_total=rejected_total,
+        active_total=active_total,
+        deleted_total=deleted_total,
         today=date.today().isoformat(),
     )
 
@@ -135,19 +132,19 @@ def api_grants():
 
 
 GRANTS_PAGE_SIZE = 30
-_STATUS_TO_MODE = {"pending": "inbox", "accepted": "accepted", "rejected": "rejected"}
 
 
 @app.route("/api/grants/cards")
 def api_grant_cards():
     """Server-side filtered + paginated grant cards (rendered HTML).
-    Lets the dashboard search/filter the ENTIRE archive, not just the first page."""
-    status = request.args.get("status", "pending")
+    Lets the dashboard search/filter the ENTIRE archive, not just the first page.
+    view ∈ {active, deleted}: active = the announcements list; deleted = recovery."""
+    view = request.args.get("view", "active")
     offset = request.args.get("offset", 0, type=int)
     hide_expired = request.args.get("hide_expired", "true") == "true"
 
     rows, total = database.query_grants(
-        status=status,
+        deleted=(view == "deleted"),
         category=request.args.get("category") or None,
         source=request.args.get("source") or None,
         q=request.args.get("q") or None,
@@ -161,7 +158,7 @@ def api_grant_cards():
     html = render_template(
         "_grant_cards.html",
         grants=rows,
-        card_mode=_STATUS_TO_MODE.get(status, "inbox"),
+        card_mode=("deleted" if view == "deleted" else "active"),
         start_idx=offset,
         today=date.today().isoformat(),
     )
@@ -180,21 +177,18 @@ def api_mark_read(grant_id):
     return jsonify({"status": "ok"})
 
 
-@app.route("/api/grants/<int:grant_id>/accept", methods=["POST"])
-def api_accept_grant(grant_id):
-    database.set_grant_status(grant_id, "accepted")
-    return jsonify({"status": "ok"})
-
-
-@app.route("/api/grants/<int:grant_id>/reject", methods=["POST"])
-def api_reject_grant(grant_id):
-    database.set_grant_status(grant_id, "rejected")
+@app.route("/api/grants/<int:grant_id>/delete", methods=["POST"])
+def api_delete_grant(grant_id):
+    """Soft-delete: hide the announcement but keep the row (so a future scan
+    won't re-add it). Recoverable from the Deleted view."""
+    database.soft_delete_grants([grant_id])
     return jsonify({"status": "ok"})
 
 
 @app.route("/api/grants/<int:grant_id>/restore", methods=["POST"])
 def api_restore_grant(grant_id):
-    database.set_grant_status(grant_id, "pending")
+    """Un-hide a soft-deleted announcement, returning it to the active list."""
+    database.restore_deleted([grant_id])
     return jsonify({"status": "ok"})
 
 
@@ -205,17 +199,48 @@ def api_mark_all_read():
 
 
 @app.route("/api/grants/bulk", methods=["POST"])
-def api_bulk_status():
+def api_bulk_action():
+    """Bulk delete or restore selected announcements. action ∈ {delete, restore}."""
     data = request.json or {}
-    ids = data.get("ids", [])
-    status = data.get("status", "")
-    if status not in ("pending", "accepted", "rejected"):
-        return jsonify({"status": "error", "error": "Invalid status"}), 400
-    ids = [int(i) for i in ids if str(i).isdigit()]
+    action = data.get("action", "")
+    ids = [int(i) for i in data.get("ids", []) if str(i).isdigit()]
     if not ids:
         return jsonify({"status": "error", "error": "No grants specified"}), 400
-    database.bulk_set_status(ids, status)
-    return jsonify({"status": "ok", "updated": len(ids)})
+    if action == "delete":
+        n = database.soft_delete_grants(ids)
+    elif action == "restore":
+        n = database.restore_deleted(ids)
+    else:
+        return jsonify({"status": "error", "error": "Invalid action"}), 400
+    return jsonify({"status": "ok", "updated": n})
+
+
+@app.route("/api/grants/send", methods=["POST"])
+def api_send_grants():
+    """Email the selected announcements to the configured recipients, then stamp
+    them Sent. Already-sent ids are skipped so nothing goes out twice."""
+    from notifier import build_programs_email, send_email_html
+    if not config.EMAIL_ENABLED:
+        return jsonify({"status": "error", "error": "Email is disabled in settings"}), 400
+    if not config.EMAIL_RECIPIENTS:
+        return jsonify({"status": "error", "error": "No recipients configured"}), 400
+    data = request.json or {}
+    ids = [int(i) for i in data.get("ids", []) if str(i).isdigit()]
+    if not ids:
+        return jsonify({"status": "error", "error": "No announcements selected"}), 400
+
+    # Only send ones not already sent; fetch their full rows for the email body.
+    rows = [database.get_grant_by_id(i) for i in ids]
+    to_send = [r for r in rows if r and not (r.get("sent_at") or "")]
+    if not to_send:
+        return jsonify({"status": "error", "error": "All selected are already sent"}), 400
+
+    html = build_programs_email(to_send, heading="Yeni Duyurular / New Announcements")
+    ok, error = send_email_html(config.EMAIL_SUBJECT, html)
+    if not ok:
+        return jsonify({"status": "error", "error": error}), 500
+    n = database.mark_grants_sent([r["id"] for r in to_send])
+    return jsonify({"status": "ok", "sent": n, "recipients": config.EMAIL_RECIPIENTS})
 
 
 @app.route("/api/grants/<int:grant_id>/details", methods=["POST"])
@@ -260,22 +285,6 @@ def api_toggle_site(site_id):
     finally:
         conn.close()
     return jsonify({"status": "ok"})
-
-
-@app.route("/api/email/accepted", methods=["POST"])
-def api_email_accepted():
-    """Send the accepted programs to the configured recipients (manual trigger)."""
-    from notifier import build_programs_email, send_email_html
-    if not config.EMAIL_RECIPIENTS:
-        return jsonify({"status": "error", "error": "No recipients configured"}), 400
-    rows, _ = database.query_grants(status="accepted", sort="deadline", limit=500)
-    if not rows:
-        return jsonify({"status": "error", "error": "No accepted programs to send"}), 400
-    html = build_programs_email(rows, heading="Kabul Edilen Hibe Programları")
-    ok, error = send_email_html(config.EMAIL_SUBJECT, html)
-    if ok:
-        return jsonify({"status": "ok", "sent": len(rows), "recipients": config.EMAIL_RECIPIENTS})
-    return jsonify({"status": "error", "error": error}), 500
 
 
 @app.route("/api/sites/<int:site_id>/selector", methods=["POST"])

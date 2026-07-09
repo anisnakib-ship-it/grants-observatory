@@ -404,6 +404,28 @@ input, select { font-family: inherit; }
 }
 .btn-restore:hover { background: rgba(210,153,34,0.2); border-color: rgba(210,153,34,0.3); }
 
+.btn-send {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 6px 14px; border-radius: var(--radius);
+    font-family: 'Outfit', sans-serif; font-size: 0.78rem; font-weight: 600;
+    color: var(--green); background: var(--green-dim);
+    border: 1px solid rgba(63,185,80,0.15);
+    cursor: pointer; transition: all .15s;
+}
+.btn-send:hover { background: rgba(63,185,80,0.2); border-color: rgba(63,185,80,0.3); }
+.btn-send:disabled { opacity: .55; cursor: default; }
+.btn-send svg { flex-shrink: 0; }
+
+.btn-delete {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 6px 14px; border-radius: var(--radius);
+    font-family: 'Outfit', sans-serif; font-size: 0.78rem; font-weight: 600;
+    color: var(--red); background: var(--red-dim);
+    border: 1px solid rgba(248,81,73,0.15);
+    cursor: pointer; transition: all .15s;
+}
+.btn-delete:hover { background: rgba(248,81,73,0.2); border-color: rgba(248,81,73,0.3); }
+
 /* =========== CATEGORY BAR (DONUT) =========== */
 .category-bar {
     display: flex; align-items: center; gap: 24px;
@@ -1311,10 +1333,16 @@ input, select { font-family: inherit; }
     background: transparent; border: 1px solid var(--border); color: var(--text-2);
     transition: all .14s var(--ease);
 }
-.row-actions .btn-accept:hover  { background: var(--green-dim); border-color: var(--green); color: var(--green); }
-.row-actions .btn-reject:hover  { background: var(--red-dim);   border-color: var(--red);   color: var(--red); }
+.row-actions .btn-delete:hover  { background: var(--red-dim);   border-color: var(--red);   color: var(--red); }
 .row-actions .btn-restore:hover { background: var(--blue-dim);  border-color: var(--blue);  color: var(--blue); }
 .row-actions .btn-expand:hover  { background: var(--card-hover); border-color: var(--border-hover); color: var(--text); }
+
+/* "Sent" badge on an announcement that's already been emailed. */
+.row-flag.sent {
+    display: inline-flex; align-items: center; gap: 3px;
+    color: var(--blue); background: var(--blue-dim);
+}
+.row-flag.sent svg { stroke: var(--blue); }
 
 /* Responsive: drop the least-critical columns on smaller widths. */
 @media (max-width: 920px) {
