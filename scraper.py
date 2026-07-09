@@ -255,7 +255,14 @@ def fetch_page(url):
             url, headers=_BASE_HEADERS, timeout=config.REQUEST_TIMEOUT, verify=False
         )
     response.raise_for_status()
-    response.encoding = response.apparent_encoding or "utf-8"
+    # Trust an explicit charset from the HTTP header; only fall back to charset
+    # detection when the server didn't declare one. apparent_encoding is a
+    # chardet guess that mis-fires on pages like KOSGEB — UTF-8 bytes served with
+    # a correct "charset=utf-8" header but a stale "<meta charset=iso-8859-9>" —
+    # which the detector latches onto, decoding Turkish letters into mojibake
+    # ("KREDİ" -> "KREDÄ°") and silently breaking keyword matching.
+    if "charset=" not in response.headers.get("Content-Type", "").lower():
+        response.encoding = response.apparent_encoding or "utf-8"
     return response.text
 
 
