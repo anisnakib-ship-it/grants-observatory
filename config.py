@@ -127,7 +127,7 @@ EMAIL_SMTP_PORT = 587
 EMAIL_SENDER = ""
 EMAIL_FROM_NAME = "Grants Monitor"
 # Shared subject line for outgoing program emails (scan alerts + accepted list).
-EMAIL_SUBJECT = "Sun Consultancy | New Announcement"
+EMAIL_SUBJECT = "Sun Danışmanlık | Yeni Duyuru"
 EMAIL_PASSWORD = ""  # SMTP only: use app password for Gmail
 EMAIL_RECIPIENTS = []
 

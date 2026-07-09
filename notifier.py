@@ -16,31 +16,9 @@ logger = logging.getLogger(__name__)
 SENDGRID_ENDPOINT = "https://api.sendgrid.com/v3/mail/send"
 
 
-def _deadline_cell(program):
-    """Return (text, bg_color, fg_color) describing a program's deadline."""
-    dd = (program.get("deadline_date") or "").strip()
-    raw = (program.get("deadline") or "").strip()
-    if dd:
-        try:
-            d = datetime.strptime(dd, "%Y-%m-%d").date()
-            days = (d - datetime.now().date()).days
-            if days < 0:
-                return (f"{dd} — süresi doldu", "#fdecea", "#b42318")
-            if days == 0:
-                return (f"{dd} — bugün son gün", "#fff4e5", "#b54708")
-            if days <= 7:
-                return (f"{dd} — {days} gün kaldı", "#fff4e5", "#b54708")
-            return (f"{dd} — {days} gün kaldı", "#eafaf1", "#067647")
-        except ValueError:
-            pass
-    if raw:
-        return (raw, "#eef2f6", "#475467")
-    return ("Belirtilmemiş", "#eef2f6", "#98a2b3")
-
-
 def build_programs_email(programs, heading="Hibe Programları / Grant Programs"):
     """Build a polished, email-client-safe HTML digest of programs.
-    Each card shows program name, institution, deadline and a link."""
+    Each card shows program name, institution, funding (if any) and a link."""
     cards = ""
     for p in programs:
         title = _html.escape(p.get("title") or "")
@@ -48,8 +26,6 @@ def build_programs_email(programs, heading="Hibe Programları / Grant Programs")
         category = _html.escape(p.get("site_category") or "")
         url = _html.escape(p.get("url") or "#", quote=True)
         funding = _html.escape((p.get("funding_amount") or "").strip())
-        dl_text, dl_bg, dl_fg = _deadline_cell(p)
-        dl_text = _html.escape(dl_text)
 
         funding_row = ""
         if funding:
@@ -71,10 +47,6 @@ def build_programs_email(programs, heading="Hibe Programları / Grant Programs")
                   <tr><td style="padding:2px 0;font:13px Arial,sans-serif;color:#475467;">
                       <span style="color:#98a2b3;">Kurum:</span> {institution}</td></tr>
                   {funding_row}
-                  <tr><td style="padding:8px 0 0 0;">
-                      <span style="font:600 13px Arial,sans-serif;color:{dl_fg};background:{dl_bg};
-                                   padding:5px 12px;border-radius:8px;display:inline-block;">
-                        ⏳ Son başvuru: {dl_text}</span></td></tr>
                 </table>
                 <div style="margin-top:16px;">
                   <a href="{url}" style="font:600 14px Arial,sans-serif;color:#ffffff;background:#2563eb;
