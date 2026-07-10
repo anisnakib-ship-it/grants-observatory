@@ -1,5 +1,6 @@
 import logging
 import threading
+import time
 from datetime import datetime, date
 
 from flask import Flask, render_template, jsonify, request, redirect, url_for
@@ -45,16 +46,33 @@ app.jinja_env.filters["catslug"] = _cat_slug
 
 scan_lock = threading.Lock()
 scan_in_progress = False
+scan_started_at = 0.0  # monotonic timestamp of the current scan's claim
 scheduler = None
+
+# A scan that has held the slot longer than this is presumed dead (hung socket,
+# SQLite lock, crashed thread that never hit `finally: _end_scan()`). Set well
+# above a legitimate full scan (~6 min) so it never pre-empts a real one. This
+# self-heals the in-memory flag so a hung scan can't wedge scanning until a
+# process restart.
+STALE_SCAN_SECONDS = 20 * 60
 
 
 def _begin_scan():
-    """Atomically claim the scan slot. Returns True if this caller may scan."""
-    global scan_in_progress
+    """Atomically claim the scan slot. Returns True if this caller may scan.
+    Reclaims the slot from a previous scan that has run past STALE_SCAN_SECONDS
+    (presumed dead) so a hung scan can't block scanning indefinitely."""
+    global scan_in_progress, scan_started_at
     with scan_lock:
         if scan_in_progress:
-            return False
+            held = time.monotonic() - scan_started_at
+            if held < STALE_SCAN_SECONDS:
+                return False
+            logger.warning(
+                f"Reclaiming scan slot from a scan held {held / 60:.1f} min "
+                f"(> {STALE_SCAN_SECONDS // 60} min) — presumed dead."
+            )
         scan_in_progress = True
+        scan_started_at = time.monotonic()
         return True
 
 

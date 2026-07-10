@@ -100,7 +100,7 @@ NEWS_HARD_NEGATIVES = [
 # grant page and extract deadline / amount / eligibility / contact.
 AUTO_SCRAPE_DETAILS = True
 AUTO_SCRAPE_DETAILS_LIMIT = 50  # cap detail fetches per scan to bound load
-DETAIL_SCRAPE_WORKERS = 4
+DETAIL_SCRAPE_WORKERS = 8  # detail/today-filter probes run in parallel; higher = faster full scans
 
 # Deduplication: in addition to matching the normalized URL, also treat a
 # program with an identical (normalized) title from the same site as already
