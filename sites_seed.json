@@ -57,7 +57,7 @@
   },
   {
     "name": "Avusturalya Büyükelçiliği",
-    "url": "http://turkey.embassy.gov.au/ankaturkish/home.html",
+    "url": "https://turkey.embassy.gov.au/ankaturkish/home.html",
     "category": "Büyükelçilik",
     "css_selector": "",
     "feed_url": "",
@@ -113,7 +113,7 @@
   },
   {
     "name": "Doğu Karadeniz Kalkınma Ajansı",
-    "url": "https://www.doka.org.tr/destekler_Acik-TR.html",
+    "url": "https://www.doka.org.tr/",
     "category": "Kalkınma Ajansı",
     "css_selector": "",
     "feed_url": "",
