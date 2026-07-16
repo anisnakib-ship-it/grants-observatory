@@ -225,6 +225,11 @@ def matches_keywords(text, context=""):
 
     if any(_fold(nk) in neg for nk in config.NEGATIVE_KEYWORDS):
         return []
+    # Bare generic negatives ("kadro"/"atama"/"memur") are only disqualifying when
+    # they are the SUBJECT of the item, so match them against the title (`pos`)
+    # only — not the description, where they appear incidentally.
+    if any(_fold(nk) in pos for nk in getattr(config, "NEGATIVE_KEYWORDS_TITLE_ONLY", [])):
+        return []
 
     strong = [kw for kw in config.GRANT_KEYWORDS_STRONG
               if any(v in pos for v in _kw_variants(kw))]
@@ -718,55 +723,110 @@ def auto_enrich_new_grants(new_grants):
     return enriched
 
 
+def _feed_page_url(feed_url, page):
+    """URL for a given feed page. Page 1 is the bare feed; later pages use
+    WordPress-style ?paged=N (works on the ab-ilan.com / *.org.tr WP feeds)."""
+    if page <= 1:
+        return feed_url
+    sep = "&" if "?" in feed_url else "?"
+    return f"{feed_url}{sep}paged={page}"
+
+
+def _parse_feed_item(it, base_url):
+    """Pull (title, link, pub, desc) out of one RSS <item>/Atom <entry>, or
+    return None if it has no title/link."""
+    tnode = it.find("title")
+    title = (tnode.get_text() if tnode else "").strip()
+    if not title:
+        return None
+    # Link: RSS <link>text</link>, Atom <link href=...>, else <guid>.
+    lnode = it.find("link")
+    if lnode is not None and lnode.get("href"):
+        link = lnode.get("href")
+    elif lnode is not None and lnode.get_text().strip():
+        link = lnode.get_text().strip()
+    else:
+        gnode = it.find("guid")
+        link = gnode.get_text().strip() if gnode else ""
+    link = normalize_url(base_url, link) or link
+    if not link or _is_landing_page(link):
+        return None
+
+    dnode = (it.find("pubDate") or it.find("published") or it.find("updated")
+             or it.find("date"))
+    pub = _feed_date(dnode.get_text()) if dnode else ""
+
+    snode = it.find("description") or it.find("summary") or it.find("content")
+    desc = ""
+    if snode:
+        desc = BeautifulSoup(snode.get_text(), "lxml").get_text(" ", strip=True)[:1000]
+    return title, link, pub, desc
+
+
 def scrape_feed(site):
     """Ingest a site's programs from its RSS/Atom feed. Feeds give a reliable
     publish date (pubDate) and a clean, pre-listed set of items - far better than
     scraping the page. Grants are tagged from_feed=True so the today-filter trusts
-    the feed date instead of re-deriving it from the detail page."""
+    the feed date instead of re-deriving it from the detail page.
+
+    A single feed page holds only ~10 items, so on a high-volume source a whole
+    day scrolls off page 1 within hours. In today-only mode we therefore walk
+    ?paged=2,3,... until an entire page predates the scan range start (feeds are
+    newest-first) or MAX_FEED_PAGES is reached, so back-dated / busy-day scans
+    still see every in-range announcement."""
     site_id = site["id"]
     name = site["name"]
     feed_url = (site.get("feed_url") or "").strip()
     if not feed_url:
         return scrape_site(site)
+
+    today = date.today().isoformat()
+    range_start = (getattr(config, "SCAN_RANGE_START", "") or today)[:10]
+    # Only page back through the feed when today-only mode bounds what we keep;
+    # in archive mode fall back to the historical single-page behavior.
+    max_pages = int(getattr(config, "MAX_FEED_PAGES", 6)) if getattr(config, "SCAN_TODAY_ONLY", False) else 1
+
+    collected = []          # list of (title, link, pub, desc)
+    seen_links = set()
     try:
-        xml = fetch_page(feed_url)
+        for page in range(1, max_pages + 1):
+            page_url = _feed_page_url(feed_url, page)
+            try:
+                xml = fetch_page(page_url)
+            except Exception:
+                if page == 1:
+                    raise           # a broken feed is a real error
+                break               # a missing page 2+ just means the feed is shorter
+            soup = BeautifulSoup(xml, "xml")
+            items = soup.find_all("item") or soup.find_all("entry")
+            if not items:
+                break
+            page_dates = []
+            new_on_page = 0
+            for it in items:
+                parsed = _parse_feed_item(it, page_url)
+                if not parsed or parsed[1] in seen_links:
+                    continue
+                seen_links.add(parsed[1])
+                new_on_page += 1
+                if parsed[2]:
+                    page_dates.append(parsed[2])
+                collected.append(parsed)
+            # Stop paging once nothing new turns up, or the whole page predates the
+            # range we keep (newest-first feed => no later page can be in range).
+            if not new_on_page:
+                break
+            if page_dates and max(page_dates) < range_start:
+                break
     except Exception as e:
         database.update_site_status(site_id, "error", error=f"feed: {str(e)[:150]}")
         return {"site": name, "status": "error", "error": str(e)[:150], "new_grants": 0}
 
-    soup = BeautifulSoup(xml, "xml")
-    items = soup.find_all("item") or soup.find_all("entry")
     # See scrape_site: keep partial inserts reachable by the today-filter if the
     # loop fails partway (e.g. "database is locked").
     new_grants = []
     try:
-        for it in items:
-            tnode = it.find("title")
-            title = (tnode.get_text() if tnode else "").strip()
-            if not title:
-                continue
-            # Link: RSS <link>text</link>, Atom <link href=...>, else <guid>.
-            lnode = it.find("link")
-            if lnode is not None and lnode.get("href"):
-                link = lnode.get("href")
-            elif lnode is not None and lnode.get_text().strip():
-                link = lnode.get_text().strip()
-            else:
-                gnode = it.find("guid")
-                link = gnode.get_text().strip() if gnode else ""
-            link = normalize_url(feed_url, link) or link
-            if not link or _is_landing_page(link):
-                continue
-
-            dnode = (it.find("pubDate") or it.find("published") or it.find("updated")
-                     or it.find("date"))
-            pub = _feed_date(dnode.get_text()) if dnode else ""
-
-            snode = it.find("description") or it.find("summary") or it.find("content")
-            desc = ""
-            if snode:
-                desc = BeautifulSoup(snode.get_text(), "lxml").get_text(" ", strip=True)[:1000]
-
+        for title, link, pub, desc in collected:
             # Same relevance filter as page scraping: keep only grant-like items.
             matched = matches_keywords(title, context=desc)
             if not matched:

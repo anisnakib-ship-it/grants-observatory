@@ -26,6 +26,12 @@ GRANT_KEYWORDS_STRONG = [
     # phrase specific ("kredi program", not bare "kredi") so ordinary bank-loan
     # news doesn't leak in. Catches e.g. KOSGEB "Yapay Zekâ Kredi Programı".
     "kredi program",
+    # "girişimci" (entrepreneur) as a title subject is an almost-certain funding
+    # signal in this domain (girişimci desteği/hibesi, startup challenges). Catches
+    # e.g. "Youth Start-Up Challenge ... Genç Girişimcilere" whose title carries no
+    # other strong keyword. Measured against 60 ab-ilan feed items: +1 (only the
+    # intended item), 0 collateral.
+    "girişimci",
 ]
 
 # Weak keywords — need at least MIN_WEAK_KEYWORD_MATCHES to match.
@@ -60,8 +66,6 @@ NEGATIVE_KEYWORDS = [
     "sonuclandi", "tamamland", "tamamlanmış", "tamamlanmistir", "tamamlanmıştır",
     "süreci tamamlan", "sona erdi", "sona ermiştir", "sona ermistir",
     "askıya alın", "iptal edil",
-    # Generic bare terms
-    "atama", "memur", "kadro",
     # Institutional / structural / service pages (org charts, report sections,
     # consultancy services) that read like grants but never are. Kept specific
     # so real funding calls (e.g. "danışmanlık desteği") are not dropped.
@@ -70,6 +74,16 @@ NEGATIVE_KEYWORDS = [
     "organizasyon şeması", "organizasyon semasi", "strateji belgeleri",
     "faaliyet raporu", "faaliyet raporları", "faaliyet raporlari",
 ]
+
+# Bare, single-word negatives that only mean "not a grant" when they are the
+# SUBJECT of the item (i.e. in the title). Applied to the title ONLY, never to the
+# surrounding context/description: words like "kadro"/"atama"/"memur" turn up
+# incidentally in legitimate grant bodies (e.g. an eligibility clause "yönetim
+# kadrosunun çoğunluğu kadın olmalı") and used to wrongly veto real calls such as
+# the Akdeniz Kadın Fonu hibe programı. The specific multi-word variants
+# ("memur alımı", "naklen atama", ...) stay in NEGATIVE_KEYWORDS and are still
+# checked against title + context.
+NEGATIVE_KEYWORDS_TITLE_ONLY = ["atama", "memur", "kadro"]
 
 # Minimum weak-keyword matches required (a single strong keyword is enough).
 # Raised to 3 so generic pages don't qualify on two common words.
@@ -122,6 +136,12 @@ ANNOUNCEMENT_WINDOW_DAYS = 0
 SCAN_TODAY_ONLY = True
 SCAN_RANGE_START = ""  # inclusive; "" = today
 SCAN_RANGE_END = ""    # inclusive; "" = today
+
+# A single WordPress/RSS feed page holds only ~10 items, so a high-volume source
+# (e.g. ab-ilan.com posts ~10/day) pushes a whole day off page 1 within hours.
+# When today-only mode is on, scrape_feed walks ?paged=2,3,... until items predate
+# the scan range start, capped here so a busy feed can't fetch unboundedly.
+MAX_FEED_PAGES = 6
 
 # Email settings (configure before use)
 EMAIL_ENABLED = False
@@ -200,3 +220,4 @@ if os.path.exists(_settings_path):
     ANNOUNCEMENT_WINDOW_DAYS = _overrides.get("announcement_window_days", ANNOUNCEMENT_WINDOW_DAYS)
     SCAN_RANGE_START = _overrides.get("scan_range_start", SCAN_RANGE_START)
     SCAN_RANGE_END = _overrides.get("scan_range_end", SCAN_RANGE_END)
+    MAX_FEED_PAGES = int(_overrides.get("max_feed_pages", MAX_FEED_PAGES))

@@ -8,7 +8,7 @@ token.json
 grants_monitor.db
 grants_monitor.db-wal
 grants_monitor.db-shm
-grants_monitor.db.bak_*
+grants_monitor.db.bak*
 
 # ---- Python env / caches ----
 .venv/
