@@ -598,21 +598,40 @@ def scrape_grant_details(grant_url):
                     break
 
         # --- Extract deadline ---
-        deadline_patterns = [
-            r"son\s+başvuru\s*(?:tarihi)?\s*[:\-]?\s*(\d{1,2}[\./\-]\d{1,2}[\./\-]\d{2,4})",
-            r"deadline\s*[:\-]?\s*(\d{1,2}[\./\-]\d{1,2}[\./\-]\d{2,4})",
-            r"son\s+başvuru\s*(?:tarihi)?\s*[:\-]?\s*(\d{1,2}\s+\w+\s+\d{4})",
-            r"deadline\s*[:\-]?\s*(\d{1,2}\s+\w+\s+\d{4})",
-            r"başvuru\s+süresi\s*[:\-]?\s*(.{10,60})",
-            r"application\s+deadline\s*[:\-]?\s*(.{10,60})",
-            r"son\s+tarih\s*[:\-]?\s*(\d{1,2}[\./\-]\d{1,2}[\./\-]\d{2,4})",
-            r"kapanış\s*(?:tarihi)?\s*[:\-]?\s*(\d{1,2}[\./\-]\d{1,2}[\./\-]\d{2,4})",
-        ]
-        for pattern in deadline_patterns:
-            match = re.search(pattern, full_text, re.IGNORECASE)
-            if match:
-                details["deadline"] = match.group(1).strip()[:200]
-                break
+        # A call often lists SEVERAL application rounds, each with its own "Son
+        # başvuru tarihi" (e.g. EIT Urban Mobility: Şubat/Mayıs/Ağustos/Kasım).
+        # Collect every dated deadline near a deadline cue, then pick the one that
+        # matters — the next upcoming round (earliest date still >= today); if all
+        # rounds have passed, the latest. Taking the FIRST match used to flag a
+        # multi-round call "expired" off an already-passed opening round while
+        # later rounds were still open. The cue allows a short filler ("ise", ":")
+        # between the cue and the date so "...tarihi ise 12 Ekim 2026" is caught.
+        _DATE = (r"(\d{1,2}[\./\-]\d{1,2}[\./\-]\d{2,4}"
+                 r"|\d{1,2}\s+[A-Za-zÇŞĞÜÖİçşğüöı]+\s+\d{4})")
+        _CUE = (r"(?:son\s+başvuru(?:\s+tarihi)?|başvuru\s+tarihi|son\s+tarih"
+                r"|kapanış(?:\s+tarihi)?|deadline|application\s+deadline)")
+        deadline_re = re.compile(_CUE + r"[^\d\n]{0,12}?" + _DATE, re.IGNORECASE)
+        found_deadlines = []   # (iso_date, raw_text)
+        for m in deadline_re.finditer(full_text):
+            raw = m.group(1).strip()
+            iso = database.extract_date(raw)
+            if iso:
+                found_deadlines.append((iso, raw))
+        if found_deadlines:
+            today_iso = date.today().isoformat()
+            upcoming = sorted(d for d in found_deadlines if d[0] >= today_iso)
+            chosen = upcoming[0] if upcoming else max(found_deadlines, key=lambda d: d[0])
+            details["deadline"] = chosen[1][:200]
+        else:
+            # No clean date near a cue: fall back to a free-text deadline phrase.
+            for pattern in (
+                r"başvuru\s+süresi\s*[:\-]?\s*(.{10,60})",
+                r"application\s+deadline\s*[:\-]?\s*(.{10,60})",
+            ):
+                match = re.search(pattern, full_text, re.IGNORECASE)
+                if match:
+                    details["deadline"] = match.group(1).strip()[:200]
+                    break
 
         # --- Extract funding amount ---
         amount_patterns = [
