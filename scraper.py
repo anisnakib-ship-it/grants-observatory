@@ -1021,7 +1021,16 @@ def run_scan():
     if getattr(config, "SCAN_TODAY_ONLY", False):
         fresh, dropped = apply_today_filter(all_new_grants)
         if dropped:
-            database.delete_grants([g["id"] for g in dropped])
+            # Tombstone before deleting: the row is what add_grant's dedup keys
+            # on, so a plain delete makes every rejected link look new again next
+            # scan and re-triggers its detail fetch. See tombstone_and_delete.
+            tombstoned, _ = database.tombstone_and_delete(
+                [g["id"] for g in dropped], reason="out_of_range"
+            )
+            logger.info(
+                f"Tombstoned {tombstoned} rejected link(s); later scans will skip "
+                f"them without re-fetching."
+            )
     else:
         fresh = [g for g in all_new_grants if is_fresh_announcement(g.get("published_date", ""))]
         auto_enrich_new_grants(fresh)

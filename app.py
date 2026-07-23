@@ -210,6 +210,9 @@ def trigger_scan():
     if full:
         database.reset_content_hashes()
         database.clear_pending_grants()
+        # Past "rejected" verdicts were made against the OLD date range, so they
+        # would wrongly suppress links that the new range should keep.
+        database.clear_tombstones()
     threading.Thread(target=_do_scan, daemon=True).start()
     return jsonify({"status": "started", "full": full})
 

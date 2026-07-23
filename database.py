@@ -157,9 +157,25 @@ def init_db():
             status TEXT DEFAULT 'running'
         );
 
+        -- Links we have already evaluated and rejected (out of the scan's date
+        -- range, or undatable). The grants row itself is deleted, so without
+        -- this the link looks brand new on the next scan: add_grant's dedup
+        -- works by finding an existing row. See tombstone_and_delete.
+        CREATE TABLE IF NOT EXISTS seen_links (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            site_id INTEGER NOT NULL,
+            normalized_url TEXT NOT NULL,
+            normalized_title TEXT DEFAULT '',
+            published_date TEXT DEFAULT '',
+            reason TEXT DEFAULT '',
+            tombstoned_at TEXT DEFAULT (datetime('now')),
+            UNIQUE(site_id, normalized_url)
+        );
+
         CREATE INDEX IF NOT EXISTS idx_grants_found_at ON grants(found_at DESC);
         CREATE INDEX IF NOT EXISTS idx_grants_is_new ON grants(is_new);
         CREATE INDEX IF NOT EXISTS idx_grants_site_id ON grants(site_id);
+        CREATE INDEX IF NOT EXISTS idx_seen_links_title ON seen_links(site_id, normalized_title);
     """)
 
     # Add detail columns if they don't exist (migration for existing DBs)
@@ -275,6 +291,21 @@ def update_site_status(site_id, status, error="", content_hash=""):
         conn.close()
 
 
+def _is_tombstoned(conn, site_id, norm_url, norm_title):
+    """True if an earlier scan already evaluated this link and rejected it.
+    Mirrors add_grant's dedup keys so a link that changed URL but kept its title
+    (or vice versa) is still recognised."""
+    clauses = ["(normalized_url != '' AND normalized_url = ?)"]
+    params = [site_id, norm_url]
+    if config.DEDUP_BY_TITLE:
+        clauses.append("(? != '' AND normalized_title = ?)")
+        params += [norm_title, norm_title]
+    return conn.execute(
+        f"SELECT 1 FROM seen_links WHERE site_id = ? AND ({' OR '.join(clauses)}) LIMIT 1",
+        params,
+    ).fetchone() is not None
+
+
 def add_grant(site_id, title, url, description="", keywords_matched=None, published_date="", item_type="funding"):
     conn = get_connection()
     try:
@@ -301,6 +332,12 @@ def add_grant(site_id, title, url, description="", keywords_matched=None, publis
                 "UPDATE grants SET last_seen_at = ? WHERE id = ?", (now, existing["id"])
             )
             conn.commit()
+            return None
+
+        # Already judged and rejected by an earlier scan. Returning None here is
+        # what saves the work: the caller never adds it to new_grants, so the
+        # today-filter never fetches its detail page again.
+        if _is_tombstoned(conn, site_id, norm_url, norm_title):
             return None
 
         cursor = conn.execute(
@@ -561,6 +598,68 @@ def delete_grants(grant_ids):
         conn.close()
 
 
+def tombstone_and_delete(grant_ids, reason=""):
+    """Record the given grants as evaluated-and-rejected, then delete their rows.
+
+    Deleting alone is self-defeating: add_grant's dedup works by finding an
+    existing row, so a deleted link looks brand new on the next scan and gets
+    re-inserted and its detail page re-fetched. On an hourly interval that
+    re-work is the bulk of every scan. The tombstone preserves the verdict after
+    the row is gone.
+
+    Tombstones are permanent by design — the scan range only moves forward, so a
+    program that was already too old will never become in-range. Deliberate
+    back-dated re-scans clear them (see clear_tombstones, wired to the
+    dashboard's "full" scan).
+
+    Returns (tombstoned, deleted).
+    """
+    if not grant_ids:
+        return 0, 0
+    conn = get_connection()
+    try:
+        placeholders = ",".join("?" * len(grant_ids))
+        rows = conn.execute(
+            f"SELECT site_id, normalized_url, normalized_title, published_date "
+            f"FROM grants WHERE id IN ({placeholders})",
+            list(grant_ids),
+        ).fetchall()
+        # A row with no normalized_url has no usable key, and UNIQUE(site_id,
+        # normalized_url) would collapse every such row into a single tombstone
+        # that then suppresses unrelated links. Leave those untombstoned.
+        keep = [r for r in rows if (r["normalized_url"] or "")]
+        tombstoned = 0
+        if keep:
+            cur = conn.executemany(
+                "INSERT OR IGNORE INTO seen_links "
+                "(site_id, normalized_url, normalized_title, published_date, reason) "
+                "VALUES (?, ?, ?, ?, ?)",
+                [(r["site_id"], r["normalized_url"], r["normalized_title"] or "",
+                  r["published_date"] or "", reason) for r in keep],
+            )
+            tombstoned = max(cur.rowcount, 0)
+        deleted = conn.execute(
+            f"DELETE FROM grants WHERE id IN ({placeholders})", list(grant_ids)
+        ).rowcount
+        conn.commit()
+        return tombstoned, deleted
+    finally:
+        conn.close()
+
+
+def clear_tombstones():
+    """Forget every rejected-link verdict so the next scan re-evaluates from
+    scratch. Wired to the "full" re-scan, which exists to rebuild the list after
+    the date range changes — exactly the case where old verdicts are wrong."""
+    conn = get_connection()
+    try:
+        cur = conn.execute("DELETE FROM seen_links")
+        conn.commit()
+        return cur.rowcount
+    finally:
+        conn.close()
+
+
 def set_published_date(grant_id, published_date):
     """Force-set published_date to an exact value (may be '' to clear a bad date).
     Unlike update_grant_details, this overwrites even when the new value is empty."""
@@ -612,6 +711,9 @@ def get_stats():
         stats["deleted_grants"] = conn.execute("SELECT COUNT(*) FROM grants WHERE is_deleted = 1").fetchone()[0]
         stats["pending_grants"] = stats["active_grants"]
         stats["sites_with_errors"] = conn.execute("SELECT COUNT(*) FROM sites WHERE last_status = 'error' AND is_active = 1").fetchone()[0]
+        # Links already judged out-of-range; each one is a detail fetch a scan
+        # no longer has to repeat. Growth here is the fix working.
+        stats["tombstoned_links"] = conn.execute("SELECT COUNT(*) FROM seen_links").fetchone()[0]
 
         last_scan = conn.execute("SELECT * FROM scan_logs ORDER BY started_at DESC LIMIT 1").fetchone()
         stats["last_scan"] = dict(last_scan) if last_scan else None
