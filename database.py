@@ -292,18 +292,27 @@ def update_site_status(site_id, status, error="", content_hash=""):
 
 
 def _is_tombstoned(conn, site_id, norm_url, norm_title):
-    """True if an earlier scan already evaluated this link and rejected it.
+    """True if a recent scan already evaluated this link and rejected it.
+
     Mirrors add_grant's dedup keys so a link that changed URL but kept its title
-    (or vice versa) is still recognised."""
+    (or vice versa) is still recognised.
+
+    Verdicts expire after config.TOMBSTONE_TTL_DAYS so a republished page gets
+    re-examined eventually — see the config comment for why that matters. A stale
+    verdict simply stops matching here; the link is then re-evaluated and, if
+    rejected again, its tombstone is refreshed by tombstone_and_delete.
+    """
     clauses = ["(normalized_url != '' AND normalized_url = ?)"]
     params = [site_id, norm_url]
     if config.DEDUP_BY_TITLE:
         clauses.append("(? != '' AND normalized_title = ?)")
         params += [norm_title, norm_title]
-    return conn.execute(
-        f"SELECT 1 FROM seen_links WHERE site_id = ? AND ({' OR '.join(clauses)}) LIMIT 1",
-        params,
-    ).fetchone() is not None
+    sql = f"SELECT 1 FROM seen_links WHERE site_id = ? AND ({' OR '.join(clauses)})"
+    ttl = int(getattr(config, "TOMBSTONE_TTL_DAYS", 30) or 0)
+    if ttl > 0:
+        sql += " AND tombstoned_at > datetime('now', ?)"
+        params.append(f"-{ttl} days")
+    return conn.execute(sql + " LIMIT 1", params).fetchone() is not None
 
 
 def add_grant(site_id, title, url, description="", keywords_matched=None, published_date="", item_type="funding"):
@@ -607,12 +616,15 @@ def tombstone_and_delete(grant_ids, reason=""):
     re-work is the bulk of every scan. The tombstone preserves the verdict after
     the row is gone.
 
-    Tombstones are permanent by design — the scan range only moves forward, so a
-    program that was already too old will never become in-range. Deliberate
-    back-dated re-scans clear them (see clear_tombstones, wired to the
-    dashboard's "full" scan).
+    Verdicts expire after config.TOMBSTONE_TTL_DAYS, so a link already carrying a
+    tombstone has its timestamp REFRESHED here rather than ignored — otherwise a
+    link that expired once would be re-evaluated on every subsequent scan, which
+    is the churn this whole mechanism exists to stop.
 
-    Returns (tombstoned, deleted).
+    A deliberate back-dated re-scan clears verdicts outright (see
+    clear_tombstones, wired to the dashboard's "full" scan).
+
+    Returns (recorded, deleted), where recorded counts new + refreshed verdicts.
     """
     if not grant_ids:
         return 0, 0
@@ -628,21 +640,26 @@ def tombstone_and_delete(grant_ids, reason=""):
         # normalized_url) would collapse every such row into a single tombstone
         # that then suppresses unrelated links. Leave those untombstoned.
         keep = [r for r in rows if (r["normalized_url"] or "")]
-        tombstoned = 0
+        recorded = 0
         if keep:
             cur = conn.executemany(
-                "INSERT OR IGNORE INTO seen_links "
+                "INSERT INTO seen_links "
                 "(site_id, normalized_url, normalized_title, published_date, reason) "
-                "VALUES (?, ?, ?, ?, ?)",
+                "VALUES (?, ?, ?, ?, ?) "
+                "ON CONFLICT(site_id, normalized_url) DO UPDATE SET "
+                "  tombstoned_at = datetime('now'), "
+                "  normalized_title = excluded.normalized_title, "
+                "  published_date = excluded.published_date, "
+                "  reason = excluded.reason",
                 [(r["site_id"], r["normalized_url"], r["normalized_title"] or "",
                   r["published_date"] or "", reason) for r in keep],
             )
-            tombstoned = max(cur.rowcount, 0)
+            recorded = max(cur.rowcount, 0)
         deleted = conn.execute(
             f"DELETE FROM grants WHERE id IN ({placeholders})", list(grant_ids)
         ).rowcount
         conn.commit()
-        return tombstoned, deleted
+        return recorded, deleted
     finally:
         conn.close()
 

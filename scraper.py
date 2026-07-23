@@ -1024,12 +1024,14 @@ def run_scan():
             # Tombstone before deleting: the row is what add_grant's dedup keys
             # on, so a plain delete makes every rejected link look new again next
             # scan and re-triggers its detail fetch. See tombstone_and_delete.
-            tombstoned, _ = database.tombstone_and_delete(
+            recorded, _ = database.tombstone_and_delete(
                 [g["id"] for g in dropped], reason="out_of_range"
             )
+            ttl = int(getattr(config, "TOMBSTONE_TTL_DAYS", 30) or 0)
+            window = f"for {ttl}d" if ttl > 0 else "permanently"
             logger.info(
-                f"Tombstoned {tombstoned} rejected link(s); later scans will skip "
-                f"them without re-fetching."
+                f"Tombstoned {recorded} rejected link(s) {window}; later scans "
+                f"skip them without re-fetching."
             )
     else:
         fresh = [g for g in all_new_grants if is_fresh_announcement(g.get("published_date", ""))]

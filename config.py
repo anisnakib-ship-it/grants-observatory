@@ -121,6 +121,16 @@ DETAIL_SCRAPE_WORKERS = 8  # detail/today-filter probes run in parallel; higher 
 # seen. Catches cases where a site changes a program's link between scans.
 DEDUP_BY_TITLE = True
 
+# How long a rejected link stays rejected. A scan records every out-of-range link
+# in seen_links so later scans skip it instead of re-fetching its detail page —
+# at an hourly interval that re-work is the bulk of a scan. But agencies do
+# sometimes republish at the SAME url (a June call updated in August with a new
+# round and a new date), and a permanent verdict would mean never looking again.
+# Expiring after this many days keeps ~99% of the saving while restoring that
+# rediscovery: a link is re-examined once a month rather than once an hour.
+# Set to 0 to make verdicts permanent (maximum saving, no rediscovery).
+TOMBSTONE_TTL_DAYS = 30
+
 # How a scan decides a newly-found program is a fresh "announced today" item
 # (this drives the alert email, desktop notification and the "new" count):
 #   "released" -> only if its detected release date is within the window below
@@ -221,3 +231,4 @@ if os.path.exists(_settings_path):
     SCAN_RANGE_START = _overrides.get("scan_range_start", SCAN_RANGE_START)
     SCAN_RANGE_END = _overrides.get("scan_range_end", SCAN_RANGE_END)
     MAX_FEED_PAGES = int(_overrides.get("max_feed_pages", MAX_FEED_PAGES))
+    TOMBSTONE_TTL_DAYS = int(_overrides.get("tombstone_ttl_days", TOMBSTONE_TTL_DAYS))
