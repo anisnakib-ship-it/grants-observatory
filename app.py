@@ -44,6 +44,72 @@ def _cat_slug(cat):
 
 app.jinja_env.filters["catslug"] = _cat_slug
 
+access_logger = logging.getLogger("access")
+
+
+def _client_ip(environ):
+    """Best-effort real client IP for logging.
+
+    Behind Cloudflare Tunnel every request reaches the app from 127.0.0.1, so
+    REMOTE_ADDR alone would make every log line identical. CF-Connecting-IP is
+    set by cloudflared and carries the real client; REMOTE_ADDR covers the
+    direct-LAN case we have today.
+
+    X-Forwarded-For is checked only as a fallback for other servers: waitress
+    defaults to clear_untrusted_proxy_headers=True with no trusted_proxy, so it
+    STRIPS every X-Forwarded-* header before the app sees it. That is a good
+    default — it stops a LAN client forging one — but it means this branch never
+    fires under waitress. If nginx is ever put in front, pass trusted_proxy and
+    trusted_proxy_headers to serve() rather than relying on this line.
+
+    Logging only. These values are informational; never use them to authorize.
+    """
+    for key in ("HTTP_CF_CONNECTING_IP", "HTTP_X_FORWARDED_FOR"):
+        value = environ.get(key, "")
+        if value:
+            # X-Forwarded-For is a chain; the original client is leftmost.
+            return value.split(",")[0].strip()
+    return environ.get("REMOTE_ADDR", "-")
+
+
+class AccessLog:
+    """Log one line per request: client, method, path, status, duration.
+
+    Waitress — unlike Flask's dev server — does not log requests, so this
+    restores the per-request visibility we had from werkzeug. In debug mode
+    werkzeug still logs as well, so lines appear twice there; that only affects
+    local development.
+    """
+
+    def __init__(self, wsgi_app):
+        self.wsgi_app = wsgi_app
+
+    def __call__(self, environ, start_response):
+        started = time.monotonic()
+        captured = {}
+
+        def _start_response(status, headers, exc_info=None):
+            captured["status"] = status
+            return start_response(status, headers, exc_info)
+
+        try:
+            return self.wsgi_app(environ, _start_response)
+        finally:
+            path = environ.get("PATH_INFO", "")
+            if environ.get("QUERY_STRING"):
+                path = f"{path}?{environ['QUERY_STRING']}"
+            access_logger.info(
+                "%s %s %s %s %.0fms",
+                _client_ip(environ),
+                environ.get("REQUEST_METHOD", "-"),
+                path,
+                captured.get("status", "-").split(" ")[0],
+                (time.monotonic() - started) * 1000,
+            )
+
+
+app.wsgi_app = AccessLog(app.wsgi_app)
+
 scan_lock = threading.Lock()
 scan_in_progress = False
 scan_started_at = 0.0  # monotonic timestamp of the current scan's claim
