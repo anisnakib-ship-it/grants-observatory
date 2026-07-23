@@ -114,6 +114,22 @@ NEWS_HARD_NEGATIVES = [
 # grant page and extract deadline / amount / eligibility / contact.
 AUTO_SCRAPE_DETAILS = True
 AUTO_SCRAPE_DETAILS_LIMIT = 50  # cap detail fetches per scan to bound load
+
+# Ceilings on the today-filter's date probe. Every scraped candidate costs one
+# detail-page fetch to read its publish date, and a single site whose layout
+# changed can emit hundreds of candidates in one scan — enough to hammer that one
+# host and stretch a scan past the next scheduled run.
+#
+# Deliberately NOT AUTO_SCRAPE_DETAILS_LIMIT. That caps enrichment of items
+# already kept, where truncating costs only a missing deadline field. The probe
+# decides keep-vs-drop, so a tight cap here would silently discard real programs
+# (and, since they'd be recorded as rejected, bury them for TOMBSTONE_TTL_DAYS).
+# Hence a far higher ceiling, sized to catch pathology rather than busy days.
+#
+# Links over a ceiling are DEFERRED — removed without a verdict and re-examined
+# on the next scan, never tombstoned. Set either to 0 to disable that ceiling.
+PROBE_LIMIT_PER_SITE = 40   # primary defence: one broken site can't flood a scan
+PROBE_LIMIT_TOTAL = 400     # backstop across all sites
 DETAIL_SCRAPE_WORKERS = 8  # detail/today-filter probes run in parallel; higher = faster full scans
 
 # Deduplication: in addition to matching the normalized URL, also treat a
@@ -232,3 +248,5 @@ if os.path.exists(_settings_path):
     SCAN_RANGE_END = _overrides.get("scan_range_end", SCAN_RANGE_END)
     MAX_FEED_PAGES = int(_overrides.get("max_feed_pages", MAX_FEED_PAGES))
     TOMBSTONE_TTL_DAYS = int(_overrides.get("tombstone_ttl_days", TOMBSTONE_TTL_DAYS))
+    PROBE_LIMIT_PER_SITE = int(_overrides.get("probe_limit_per_site", PROBE_LIMIT_PER_SITE))
+    PROBE_LIMIT_TOTAL = int(_overrides.get("probe_limit_total", PROBE_LIMIT_TOTAL))

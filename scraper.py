@@ -372,6 +372,8 @@ def scrape_site(site):
                 if grant_id:
                     new_grants.append({
                         "id": grant_id,
+                        "site_id": site_id,
+                        "site_name": name,
                         "title": link_text[:500],
                         "url": href,
                         "keywords": matched_keywords,
@@ -856,7 +858,8 @@ def scrape_feed(site):
             )
             if grant_id:
                 new_grants.append({
-                    "id": grant_id, "title": title[:500], "url": link,
+                    "id": grant_id, "site_id": site_id, "site_name": name,
+                    "title": title[:500], "url": link,
                     "published_date": pub, "from_feed": True,
                 })
     except Exception as e:
@@ -903,9 +906,9 @@ def apply_today_filter(new_grants):
     def in_range(d):
         return bool(d) and start <= d[:10] <= end
 
-    kept, dropped = [], []
+    kept, dropped, deferred = [], [], []
     if not new_grants:
-        return kept, dropped
+        return kept, dropped, deferred
 
     feed_items = [g for g in new_grants if g.get("from_feed")]
     scrape_items = [g for g in new_grants if not g.get("from_feed")]
@@ -939,10 +942,45 @@ def apply_today_filter(new_grants):
         # Could not read the page: treat as date-less (lenient), keep as new-today.
         return g, None, ""
 
+    # Bound the probe before running it. Concurrency is already capped by
+    # DETAIL_SCRAPE_WORKERS, but the TOTAL is not: one site whose layout changed
+    # (strip_noise stops recognising its nav, so menu links start matching
+    # keywords) can emit hundreds of candidates, all fetched from that same host.
+    #
+    # Over-ceiling links are DEFERRED, never rejected — see the config comment.
+    # Within a site the original page order is preserved, so the items we do probe
+    # are the ones nearest the top of the listing, i.e. the newest.
+    per_site_cap = int(getattr(config, "PROBE_LIMIT_PER_SITE", 40) or 0)
+    total_cap = int(getattr(config, "PROBE_LIMIT_TOTAL", 400) or 0)
+    to_probe, seen_per_site = [], {}
+    for g in scrape_items:
+        sid = g.get("site_id")
+        used = seen_per_site.get(sid, 0)
+        if (per_site_cap and used >= per_site_cap) or (total_cap and len(to_probe) >= total_cap):
+            deferred.append(g)
+            continue
+        seen_per_site[sid] = used + 1
+        to_probe.append(g)
+
+    if deferred:
+        offenders = {}
+        for g in deferred:
+            key = g.get("site_name") or f"site {g.get('site_id')}"
+            offenders[key] = offenders.get(key, 0) + 1
+        top = ", ".join(
+            f"{n}x {s}" for s, n in sorted(offenders.items(), key=lambda kv: -kv[1])[:3]
+        )
+        logger.warning(
+            f"Probe ceiling hit: deferred {len(deferred)} link(s) unjudged "
+            f"(per-site {per_site_cap}, total {total_cap}) — {top}. They will be "
+            f"re-examined next scan. A site producing this many candidates usually "
+            f"means its layout changed and link extraction is over-matching."
+        )
+
     results = []
-    if scrape_items:
+    if to_probe:
         with ThreadPoolExecutor(max_workers=config.DETAIL_SCRAPE_WORKERS) as executor:
-            futures = [executor.submit(probe, g) for g in scrape_items]
+            futures = [executor.submit(probe, g) for g in to_probe]
             for future in as_completed(futures):
                 try:
                     results.append(future.result())
@@ -982,9 +1020,10 @@ def apply_today_filter(new_grants):
 
     logger.info(
         f"Date-filter [{start}..{end}]: kept {len(kept)} in-range "
-        f"({len(feed_keep)} via feed), dropped {len(dropped)}."
+        f"({len(feed_keep)} via feed), dropped {len(dropped)}, "
+        f"deferred {len(deferred)}."
     )
-    return kept, dropped
+    return kept, dropped, deferred
 
 
 def run_scan():
@@ -1019,7 +1058,12 @@ def run_scan():
     # KEEP only today's announcements (hybrid rule); the rest are deleted so the
     # platform holds today's set only. Otherwise fall back to the archive behavior.
     if getattr(config, "SCAN_TODAY_ONLY", False):
-        fresh, dropped = apply_today_filter(all_new_grants)
+        fresh, dropped, deferred = apply_today_filter(all_new_grants)
+        if deferred:
+            # Unjudged, so no verdict is recorded: a plain delete lets the next
+            # scan rediscover and evaluate them properly. Tombstoning here would
+            # bury links we never actually looked at.
+            database.delete_grants([g["id"] for g in deferred])
         if dropped:
             # Tombstone before deleting: the row is what add_grant's dedup keys
             # on, so a plain delete makes every rejected link look new again next
