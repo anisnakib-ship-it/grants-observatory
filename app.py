@@ -458,11 +458,24 @@ if __name__ == "__main__":
     scheduler.start()
     logger.info(f"Scheduler started. Scanning every {config.SCAN_INTERVAL_HOURS} hours.")
 
-    # Run Flask
+    # Serve. Flask's built-in server is development tooling — single-threaded by
+    # default and explicitly not meant to take real traffic — so it's used only in
+    # debug mode, where its auto-reloader is the whole point. Everything else goes
+    # through waitress, a production WSGI server that runs the same on Windows and
+    # on the Ubuntu host (no C extensions, unlike gunicorn which is POSIX-only).
+    server = "Flask dev server" if config.FLASK_DEBUG else "waitress"
     print("\n" + "=" * 60)
     print("  GRANTS MONITORING SYSTEM")
     print(f"  Dashboard: http://{config.FLASK_HOST}:{config.FLASK_PORT}")
     print(f"  Scan interval: every {config.SCAN_INTERVAL_HOURS} hours")
     print(f"  Debug mode: {config.FLASK_DEBUG}")
+    print(f"  Server: {server}")
     print("=" * 60 + "\n")
-    app.run(debug=config.FLASK_DEBUG, host=config.FLASK_HOST, port=config.FLASK_PORT)
+    if config.FLASK_DEBUG:
+        app.run(debug=True, host=config.FLASK_HOST, port=config.FLASK_PORT)
+    else:
+        from waitress import serve
+        # The dashboard fans out several /api/grants/cards requests at once, so a
+        # few threads keep it responsive. The scan runs in its own thread either
+        # way and is unaffected by this pool.
+        serve(app, host=config.FLASK_HOST, port=config.FLASK_PORT, threads=8)
