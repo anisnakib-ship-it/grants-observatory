@@ -11,6 +11,7 @@ Restart the app afterwards so it reloads settings.json:
     pm2 restart grants-monitor
 """
 import getpass
+import os
 import sys
 
 from werkzeug.security import generate_password_hash
@@ -44,7 +45,7 @@ def main():
         "auth_password_hash": generate_password_hash(password),
         "auth_enabled": True,
     })
-    print(f"\nPassword set. Hash written to {config.BASE_DIR}\\settings.json")
+    print(f"\nPassword set. Hash written to {os.path.join(config.BASE_DIR, 'settings.json')}")
     print("Restart the app to load it:  pm2 restart grants-monitor")
     return 0
 
