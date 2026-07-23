@@ -87,6 +87,32 @@ newly found grants.
 
 ---
 
+## 3a. Set the dashboard password (required)
+
+The dashboard requires a login. Set the password once per host:
+
+```powershell
+python set_password.py
+```
+
+Only a hash is stored, in `settings.json` (git-ignored). Restart the app
+afterwards so it picks the change up.
+
+Until a password is set the app **refuses all logins** rather than running open —
+so if the login page says *"No password is set"*, run the command above.
+
+Two settings matter once the app is reachable from the internet:
+
+| settings.json key | Set it when |
+|---|---|
+| `session_cookie_secure` | `true` once everyone uses the `https://` address. Leave `false` while anyone still uses the plain-HTTP LAN address, or their browser will refuse to send the session cookie and login will appear to fail. |
+| `auth_session_hours` | How long a login lasts (default 12). |
+
+`settings.json` now holds the session signing key and the password hash. Back it
+up; losing it logs everyone out and needs the password set again.
+
+---
+
 ## 4. Configuration (optional)
 
 Settings can be overridden in two ways. **Environment variables** take effect

@@ -212,8 +212,34 @@ EXCEL_PATH = os.environ.get(
     os.path.join(os.path.expanduser("~"), "OneDrive", "Desktop", "Daily Check.xlsx"),
 )
 
+# --- Dashboard authentication -----------------------------------------------
+# Reachable from the internet through Cloudflare Tunnel, so it must not be open.
+#
+# Only a PBKDF2 hash is ever stored, and it lives in settings.json (git-ignored),
+# never in this file — config.py is in a public repo. Set it with:
+#     python set_password.py
+AUTH_ENABLED = True
+AUTH_PASSWORD_HASH = ""
+AUTH_SESSION_HOURS = 12
+
+# Failed-login throttle, counted per client IP (CF-Connecting-IP behind the
+# tunnel, so one abusive source can't lock out everyone else).
+AUTH_MAX_ATTEMPTS = 8
+AUTH_LOCKOUT_MINUTES = 15
+
+# Send the session cookie only over HTTPS. Correct once everyone reaches the app
+# at https://grants.sunandsun.com.tr — but while people still use the plain-HTTP
+# LAN address, a True here means the browser silently refuses to send the cookie
+# and login appears to fail for no reason. Flip it when LAN access is retired.
+SESSION_COOKIE_SECURE = False
+
 # Flask
-SECRET_KEY = os.environ.get("GRANTS_SECRET_KEY", "grants-monitor-secret-key-change-in-production")
+DEFAULT_SECRET_KEY = "grants-monitor-secret-key-change-in-production"
+# A signed session cookie is only as trustworthy as its key, and the default
+# below is a literal published in a public repo — anyone could forge a session.
+# app.py replaces it with a generated key on first run and persists that to
+# settings.json. Keep the default only as a marker meaning "not yet set".
+SECRET_KEY = os.environ.get("GRANTS_SECRET_KEY", DEFAULT_SECRET_KEY)
 FLASK_DEBUG = os.environ.get("GRANTS_DEBUG", "false").lower() in ("1", "true", "yes")
 FLASK_HOST = os.environ.get("GRANTS_HOST", "127.0.0.1")
 FLASK_PORT = int(os.environ.get("GRANTS_PORT", "5000"))
@@ -250,3 +276,24 @@ if os.path.exists(_settings_path):
     TOMBSTONE_TTL_DAYS = int(_overrides.get("tombstone_ttl_days", TOMBSTONE_TTL_DAYS))
     PROBE_LIMIT_PER_SITE = int(_overrides.get("probe_limit_per_site", PROBE_LIMIT_PER_SITE))
     PROBE_LIMIT_TOTAL = int(_overrides.get("probe_limit_total", PROBE_LIMIT_TOTAL))
+    AUTH_ENABLED = _overrides.get("auth_enabled", AUTH_ENABLED)
+    AUTH_PASSWORD_HASH = _overrides.get("auth_password_hash", AUTH_PASSWORD_HASH)
+    AUTH_SESSION_HOURS = int(_overrides.get("auth_session_hours", AUTH_SESSION_HOURS))
+    AUTH_MAX_ATTEMPTS = int(_overrides.get("auth_max_attempts", AUTH_MAX_ATTEMPTS))
+    AUTH_LOCKOUT_MINUTES = int(_overrides.get("auth_lockout_minutes", AUTH_LOCKOUT_MINUTES))
+    SESSION_COOKIE_SECURE = _overrides.get("session_cookie_secure", SESSION_COOKIE_SECURE)
+    SECRET_KEY = _overrides.get("secret_key", SECRET_KEY)
+
+
+def save_settings(updates):
+    """Merge `updates` into settings.json, creating it if absent, and return the
+    full dict. Shared by app.py and set_password.py so the file is always written
+    the same way — and so a partial write can't drop unrelated keys."""
+    data = {}
+    if os.path.exists(_settings_path):
+        with open(_settings_path, encoding="utf-8") as f:
+            data = _json.load(f)
+    data.update(updates)
+    with open(_settings_path, "w", encoding="utf-8") as f:
+        _json.dump(data, f, indent=2, ensure_ascii=False)
+    return data

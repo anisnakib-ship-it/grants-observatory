@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grants Observatory</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .auth-wrap {
+            min-height: 100vh; display: flex; align-items: center;
+            justify-content: center; padding: 24px;
+        }
+        .auth-card {
+            width: 100%; max-width: 380px; background: var(--card);
+            border: 1px solid var(--border); border-radius: var(--radius-lg);
+            padding: 36px 32px;
+        }
+        .auth-brand {
+            font-family: 'Syne', system-ui, sans-serif; font-weight: 800;
+            font-size: 24px; letter-spacing: -0.5px; margin-bottom: 6px;
+        }
+        .auth-sub { color: var(--text-3); font-size: 14px; margin-bottom: 26px; }
+        .auth-label {
+            display: block; font-size: 13px; color: var(--text-2);
+            margin-bottom: 8px;
+        }
+        .auth-input {
+            width: 100%; padding: 12px 14px; background: var(--surface);
+            border: 1px solid var(--border); border-radius: var(--radius);
+            color: var(--text); font-size: 15px; transition: border-color .2s var(--ease);
+        }
+        .auth-input:focus { outline: none; border-color: var(--blue); }
+        .auth-btn {
+            width: 100%; margin-top: 18px; padding: 12px; border-radius: var(--radius);
+            background: var(--blue); color: #06121f; font-weight: 600;
+            font-size: 15px; transition: filter .2s var(--ease);
+        }
+        .auth-btn:hover { filter: brightness(1.1); }
+        .auth-error {
+            margin-bottom: 20px; padding: 11px 14px; border-radius: var(--radius);
+            background: var(--red-dim); border: 1px solid var(--red);
+            color: var(--red); font-size: 13.5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="atmosphere" aria-hidden="true">
+        <div class="atmo-noise"></div>
+        <div class="atmo-glow"></div>
+        <div class="atmo-grid"></div>
+    </div>
+
+    <main class="auth-wrap">
+        <div class="auth-card">
+            <div class="auth-brand">Grants Observatory</div>
+            <p class="auth-sub">Devam etmek için giriş yapın / Sign in to continue</p>
+
+            {% if error %}
+                <div class="auth-error" role="alert">{{ error }}</div>
+            {% endif %}
+
+            <form method="post" autocomplete="on">
+                <label class="auth-label" for="password">Parola / Password</label>
+                <input class="auth-input" type="password" id="password" name="password"
+                       autocomplete="current-password" required autofocus>
+                <button class="auth-btn" type="submit">Giriş / Sign in</button>
+            </form>
+        </div>
+    </main>
+</body>
+</html>

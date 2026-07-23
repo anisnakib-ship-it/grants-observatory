@@ -1,9 +1,11 @@
 import logging
+import secrets
 import threading
 import time
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 
-from flask import Flask, render_template, jsonify, request, redirect, url_for
+from flask import Flask, render_template, jsonify, request, redirect, url_for, session
+from werkzeug.security import check_password_hash
 from apscheduler.schedulers.background import BackgroundScheduler
 
 import os
@@ -25,7 +27,35 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-app.secret_key = config.SECRET_KEY
+
+
+def _ensure_secret_key():
+    """Return a real signing key, generating and persisting one if needed.
+
+    config.py's default is a literal published in a public repo, so anyone could
+    forge a session cookie signed with it. On first run we mint a random key and
+    write it to settings.json (git-ignored) so it survives restarts — otherwise a
+    fresh key each boot would log everyone out on every deploy.
+    """
+    if config.SECRET_KEY and config.SECRET_KEY != config.DEFAULT_SECRET_KEY:
+        return config.SECRET_KEY
+    key = secrets.token_urlsafe(48)
+    config.save_settings({"secret_key": key})
+    config.SECRET_KEY = key
+    logger.warning(
+        "No SECRET_KEY was set; generated one and saved it to settings.json. "
+        "Keep that file out of git and back it up — losing it logs everyone out."
+    )
+    return key
+
+
+app.secret_key = _ensure_secret_key()
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,          # JavaScript can never read the cookie
+    SESSION_COOKIE_SAMESITE="Lax",         # blocks cross-site form POSTs (CSRF)
+    SESSION_COOKIE_SECURE=bool(config.SESSION_COOKIE_SECURE),
+    PERMANENT_SESSION_LIFETIME=timedelta(hours=config.AUTH_SESSION_HOURS),
+)
 app.jinja_env.filters["from_json"] = lambda s: json_module.loads(s) if isinstance(s, str) else s
 
 # Category -> stable ASCII slug for the color-coding CSS class, so Turkish
@@ -109,6 +139,123 @@ class AccessLog:
 
 
 app.wsgi_app = AccessLog(app.wsgi_app)
+
+
+# --- Authentication ---------------------------------------------------------
+# The app is internet-facing via Cloudflare Tunnel with no Cloudflare Access in
+# front, so this guard is the only thing between the public and endpoints that
+# send email, wipe announcements and rewrite settings. It is deny-by-default:
+# every route requires a session unless explicitly exempted below.
+
+_PUBLIC_ENDPOINTS = {"login", "static"}
+
+# Failed attempts per client IP: ip -> (count, window_started_monotonic).
+# In-memory on purpose — a restart clearing the throttle is acceptable, and it
+# avoids a DB write on every failed guess (which would itself be a DoS vector).
+_login_failures = {}
+_login_lock = threading.Lock()
+
+
+def _throttle_key(environ):
+    """Unspoofable identity for the login throttle.
+
+    _client_ip trusts CF-Connecting-IP, which is correct for logging but wrong
+    here: anything able to reach the app directly could forge that header and
+    hand itself a fresh allowance on every guess. So only honour it when the
+    connection actually arrived on loopback — i.e. from cloudflared, where
+    Cloudflare has already set the header and no outside client can reach us.
+    A direct caller is keyed on its real socket address, which it cannot lie
+    about, so forging the header from the LAN buys nothing.
+    """
+    remote = environ.get("REMOTE_ADDR", "")
+    if remote in ("127.0.0.1", "::1"):
+        return _client_ip(environ)
+    return remote or "unknown"
+
+
+def _lockout_window():
+    return max(int(config.AUTH_LOCKOUT_MINUTES), 1) * 60
+
+
+def _is_locked_out(ip):
+    with _login_lock:
+        count, started = _login_failures.get(ip, (0, 0.0))
+        if started and time.monotonic() - started > _lockout_window():
+            _login_failures.pop(ip, None)        # window elapsed, forgive
+            return False
+        return count >= int(config.AUTH_MAX_ATTEMPTS)
+
+
+def _record_login_failure(ip):
+    with _login_lock:
+        count, started = _login_failures.get(ip, (0, 0.0))
+        if not started or time.monotonic() - started > _lockout_window():
+            _login_failures[ip] = (1, time.monotonic())
+        else:
+            _login_failures[ip] = (count + 1, started)
+
+
+def _clear_login_failures(ip):
+    with _login_lock:
+        _login_failures.pop(ip, None)
+
+
+@app.before_request
+def _require_login():
+    if not config.AUTH_ENABLED:
+        return None
+    if request.endpoint in _PUBLIC_ENDPOINTS or session.get("auth") is True:
+        return None
+    # API callers get JSON, not an HTML redirect — otherwise the dashboard's
+    # fetch() calls would try to parse a login page as JSON and fail obscurely.
+    if request.path.startswith("/api/"):
+        return jsonify({"status": "error", "error": "Authentication required"}), 401
+    return redirect(url_for("login", next=request.full_path.rstrip("?")))
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if not config.AUTH_ENABLED:
+        return redirect(url_for("dashboard"))
+    error = None
+    ip = _client_ip(request.environ)          # for the log: real client, best effort
+    key = _throttle_key(request.environ)      # for the throttle: cannot be forged
+
+    if request.method == "POST":
+        if _is_locked_out(key):
+            # Deliberately checked BEFORE the password so a locked-out caller
+            # gets no signal about whether their guess was right.
+            error = f"Too many attempts. Wait {config.AUTH_LOCKOUT_MINUTES} minutes."
+            access_logger.warning("login throttled for %s", ip)
+        elif not config.AUTH_PASSWORD_HASH:
+            error = "No password is set. Run: python set_password.py"
+            access_logger.error("login attempted but no password is configured")
+        elif check_password_hash(config.AUTH_PASSWORD_HASH,
+                                 request.form.get("password", "")):
+            session.clear()
+            session["auth"] = True
+            session.permanent = True
+            _clear_login_failures(key)
+            access_logger.info("login OK from %s", ip)
+            target = request.args.get("next") or url_for("dashboard")
+            # Only same-site paths: "//evil.com" is protocol-relative and would
+            # otherwise turn this into an open redirect.
+            if not target.startswith("/") or target.startswith("//"):
+                target = url_for("dashboard")
+            return redirect(target)
+        else:
+            _record_login_failure(key)
+            access_logger.warning("login FAILED from %s", ip)
+            error = "Incorrect password."
+
+    return render_template("login.html", error=error), (401 if error else 200)
+
+
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("login"))
+
 
 scan_lock = threading.Lock()
 scan_in_progress = False
