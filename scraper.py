@@ -931,16 +931,25 @@ def apply_today_filter(new_grants):
 
     # --- Scraped items: derive the reliable date from the detail page. ---
     def probe(g):
+        """Fetch a candidate's detail page. Returns (g, details, pub, read_ok).
+
+        read_ok distinguishes "the page said nothing about a date" from "we never
+        got to read the page". They look identical here — both yield no date — but
+        they must NOT be judged the same: a date-less page is evidence and earns a
+        rejection, whereas a timeout is the absence of evidence. Recording the
+        latter as a verdict tombstones a link we never looked at, hiding a possibly
+        real program for TOMBSTONE_TTL_DAYS on nothing more than a network blip.
+        """
         try:
             res = scrape_grant_details(g["url"])
         except Exception as e:
             logger.debug(f"  today-filter fetch failed for {g.get('id')}: {e}")
-            return g, None, ""
+            return g, None, "", False
         if res.get("status") == "ok":
             details = res["details"]
-            return g, details, (details.get("published_date") or "")
-        # Could not read the page: treat as date-less (lenient), keep as new-today.
-        return g, None, ""
+            return g, details, (details.get("published_date") or ""), True
+        logger.debug(f"  today-filter probe error for {g.get('id')}: {res.get('error')}")
+        return g, None, "", False
 
     # Bound the probe before running it. Concurrency is already capped by
     # DETAIL_SCRAPE_WORKERS, but the TOTAL is not: one site whose layout changed
@@ -987,7 +996,8 @@ def apply_today_filter(new_grants):
                 except Exception as e:
                     logger.warning(f"  today-filter probe error: {e}")
 
-    for g, details, pub in results:
+    unread = 0
+    for g, details, pub, read_ok in results:
         reliable = pub[:10] if pub else ""
         # Fallback: many sites print the date only as human-readable text in the
         # title or body ("15 Haziran 2026"), which extract_published_date
@@ -1011,17 +1021,37 @@ def apply_today_filter(new_grants):
         # items are dropped (an audit showed the old "date-less = today" proxy kept
         # old programs and standing catalog pages, none actually in range).
         if not in_range(reliable):
-            dropped.append(g)
+            # An unreadable page yields no verdict, only a retry. The URL/title
+            # fallbacks above are page-independent, so if one of them produced a
+            # date we DO have evidence and reject on it as normal; it is only the
+            # case of no evidence at all — fetch failed AND nothing derivable from
+            # the link itself — that defers. Deferred links are deleted without a
+            # tombstone and re-examined next scan, so a site that is briefly down
+            # costs one re-probe instead of a 30-day blackout on everything it
+            # published that day.
+            if not read_ok and not reliable:
+                unread += 1
+                deferred.append(g)
+            else:
+                dropped.append(g)
             continue
         if details:
             database.update_grant_details(g["id"], details)
         database.set_published_date(g["id"], reliable)
         kept.append(g)
 
+    if unread:
+        logger.warning(
+            f"{unread} link(s) deferred unjudged: their detail page could not be "
+            f"read and neither the URL nor the title carried a date. They keep no "
+            f"verdict and are re-examined next scan. A large count here usually "
+            f"means a source was down or rate-limiting during this scan."
+        )
+
     logger.info(
         f"Date-filter [{start}..{end}]: kept {len(kept)} in-range "
         f"({len(feed_keep)} via feed), dropped {len(dropped)}, "
-        f"deferred {len(deferred)}."
+        f"deferred {len(deferred)} ({unread} unreadable)."
     )
     return kept, dropped, deferred
 
