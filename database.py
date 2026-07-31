@@ -291,11 +291,23 @@ def update_site_status(site_id, status, error="", content_hash=""):
         conn.close()
 
 
-def _is_tombstoned(conn, site_id, norm_url, norm_title):
+def _is_tombstoned(conn, site_id, norm_url, norm_title, published_date=""):
     """True if a recent scan already evaluated this link and rejected it.
 
     Mirrors add_grant's dedup keys so a link that changed URL but kept its title
     (or vice versa) is still recognised.
+
+    The title key additionally requires the publish dates to agree. A title alone
+    is too weak to carry a REJECTION forward: agencies reuse one wording for a
+    recurring notice (TKDK posts an identically-titled "çağrı ilanı tarihinde
+    değişiklik" whenever a call slips), so a title-only match let an April item's
+    verdict silently bury a genuinely new July announcement at a new URL — and
+    because the suppression happens before the insert, it left no row, no
+    tombstone and no log line to notice. Same title AND same date is still the
+    same item, which keeps the "site changed its URL scheme" saving intact.
+    When either date is unknown we do NOT suppress: re-examining costs one detail
+    fetch, whereas a wrong verdict hides a real program for TOMBSTONE_TTL_DAYS —
+    the same asymmetry the probe ceiling is sized around (see config.py).
 
     Verdicts expire after config.TOMBSTONE_TTL_DAYS so a republished page gets
     re-examined eventually — see the config comment for why that matters. A stale
@@ -305,8 +317,11 @@ def _is_tombstoned(conn, site_id, norm_url, norm_title):
     clauses = ["(normalized_url != '' AND normalized_url = ?)"]
     params = [site_id, norm_url]
     if config.DEDUP_BY_TITLE:
-        clauses.append("(? != '' AND normalized_title = ?)")
-        params += [norm_title, norm_title]
+        clauses.append(
+            "(? != '' AND normalized_title = ?"
+            " AND ? != '' AND IFNULL(published_date, '') = ?)"
+        )
+        params += [norm_title, norm_title, published_date, published_date]
     sql = f"SELECT 1 FROM seen_links WHERE site_id = ? AND ({' OR '.join(clauses)})"
     ttl = int(getattr(config, "TOMBSTONE_TTL_DAYS", 30) or 0)
     if ttl > 0:
@@ -346,7 +361,7 @@ def add_grant(site_id, title, url, description="", keywords_matched=None, publis
         # Already judged and rejected by an earlier scan. Returning None here is
         # what saves the work: the caller never adds it to new_grants, so the
         # today-filter never fetches its detail page again.
-        if _is_tombstoned(conn, site_id, norm_url, norm_title):
+        if _is_tombstoned(conn, site_id, norm_url, norm_title, published_date):
             return None
 
         cursor = conn.execute(
