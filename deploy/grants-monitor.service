@@ -1,3 +1,8 @@
+# NOT IN USE. The deployment runs under PM2 (ecosystem.config.js); this unit is
+# kept only as a systemd alternative. Installing it while the PM2 app is running
+# would start a SECOND process against the same SQLite file — remove the PM2 app
+# first (pm2 delete grants-monitor && pm2 save). See DEPLOY.md.
+
 [Unit]
 Description=Grants Observatory (grant/funding monitor)
 After=network-online.target
@@ -7,8 +12,10 @@ Wants=network-online.target
 Type=simple
 User=moez
 WorkingDirectory=/home/moez/grants-monitor
-# Listen on all interfaces so it's reachable at 192.168.1.135:5000
-Environment=GRANTS_HOST=0.0.0.0
+# Loopback only: cloudflared reaches the app over localhost, and binding to
+# 0.0.0.0 would both add an unencrypted way in and let anyone on the LAN forge
+# CF-Connecting-IP, which is what the login throttle keys on. See DEPLOY.md.
+Environment=GRANTS_HOST=127.0.0.1
 Environment=GRANTS_PORT=5000
 Environment=PYTHONIOENCODING=utf-8
 ExecStart=/home/moez/grants-monitor/.venv/bin/python app.py
