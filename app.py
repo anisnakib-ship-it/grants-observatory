@@ -200,12 +200,37 @@ def _clear_login_failures(ip):
         _login_failures.pop(ip, None)
 
 
+def _export_key_ok():
+    """True if this request carries the export API key.
+
+    Compared with compare_digest so a wrong key can't be recovered a byte at a
+    time from response timing. An unset key never authenticates anything — the
+    endpoint checks that separately and 404s — so a deployment that hasn't
+    configured one can't be reached with an empty header.
+    """
+    presented = request.headers.get("X-API-Key", "")
+    if not config.EXPORT_API_KEY or not presented:
+        return False
+    return secrets.compare_digest(presented, config.EXPORT_API_KEY)
+
+
 @app.before_request
 def _require_login():
     if not config.AUTH_ENABLED:
         return None
     if request.endpoint in _PUBLIC_ENDPOINTS or session.get("auth") is True:
         return None
+    # The export feed is read-only and machine-facing, so it authenticates with
+    # its own key instead of a session. Scoped to that one endpoint by name: a
+    # blanket "any request with the header" check would hand a mirroring service
+    # the whole write API. Resolved fully here — the view function never runs for
+    # an unauthenticated request, so the "no key configured" 404 has to be
+    # returned from this hook too, not just from the view.
+    if request.endpoint == "api_export_grants":
+        if not config.EXPORT_API_KEY:
+            return jsonify({"status": "error", "error": "Not found"}), 404
+        if _export_key_ok():
+            return None
     # API callers get JSON, not an HTML redirect — otherwise the dashboard's
     # fetch() calls would try to parse a login page as JSON and fail obscurely.
     if request.path.startswith("/api/"):
@@ -371,6 +396,28 @@ def scan_status():
         "in_progress": scan_in_progress,
         "stats": stats,
     })
+
+
+@app.route("/api/export/grants")
+def api_export_grants():
+    """Read-only feed of sent programs for a sibling platform to mirror.
+
+    Incremental: pass the previous response's `next_cursor` back as `?since=` and
+    you get only what changed after it. Poll until `has_more` is false.
+
+    A missing key 404s rather than 401s so an unconfigured deployment gives away
+    nothing about whether the endpoint exists.
+    """
+    if not config.EXPORT_API_KEY:
+        return jsonify({"status": "error", "error": "Not found"}), 404
+    result = database.export_sent_grants(
+        since=request.args.get("since", ""),
+        limit=request.args.get("limit", 200, type=int),
+    )
+    access_logger.info(
+        "export: %d item(s), cursor=%s", len(result["items"]), result["next_cursor"]
+    )
+    return jsonify(result)
 
 
 @app.route("/api/grants")

@@ -201,6 +201,12 @@ def init_db():
         # scan won't re-add it via URL dedup). Replaces the accept/reject split.
         "sent_at": "TEXT DEFAULT ''",
         "is_deleted": "INTEGER DEFAULT 0",
+        # Watermark for the export API's incremental sync. found_at only records
+        # discovery and last_seen_at only moves on re-scrape, so neither reflects
+        # a triage action — a consumer polling "what changed since X" would miss
+        # every send, hide and restore. Touched by every mutation that alters an
+        # exported field; see _touch().
+        "updated_at": "TEXT DEFAULT ''",
     }
     newly_added = [col for col in new_cols if col not in existing_cols]
     for col in newly_added:
@@ -211,6 +217,17 @@ def init_db():
     # recoverable); 'accepted'/'pending' stay in the active list.
     if "is_deleted" in newly_added:
         cursor.execute("UPDATE grants SET is_deleted = 1 WHERE status = 'rejected'")
+
+    # Seed the export watermark for rows that predate it. Without a backfill they
+    # would all carry '' and sort before any real timestamp, so a consumer's first
+    # sync would still see them — but with no ordering among themselves. Use the
+    # newest timestamp the row already has.
+    if "updated_at" in newly_added:
+        cursor.execute(
+            "UPDATE grants SET updated_at = MAX("
+            "  IFNULL(sent_at, ''), IFNULL(last_seen_at, ''), IFNULL(found_at, '')"
+            ")"
+        )
 
     # Sites migration: feed_url holds a validated RSS/Atom feed for sites that
     # publish one (ingested via feeds for reliable publish dates).
@@ -367,12 +384,14 @@ def add_grant(site_id, title, url, description="", keywords_matched=None, publis
         cursor = conn.execute(
             """INSERT OR IGNORE INTO grants
                  (site_id, title, url, description, keywords_matched,
-                  normalized_url, normalized_title, last_seen_at, published_date, item_type)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                  normalized_url, normalized_title, last_seen_at, published_date, item_type,
+                  updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 site_id, title, url, description,
                 json.dumps(keywords_matched or [], ensure_ascii=False),
                 norm_url, norm_title, now, published_date, item_type,
+                now,
             ),
         )
         conn.commit()
@@ -518,10 +537,19 @@ def mark_grant_read(grant_id):
         conn.close()
 
 
+def _now():
+    """Timestamp for the export watermark. UTC ISO-8601, matching sent_at and
+    last_seen_at so the MAX() backfill in init_db compares like with like."""
+    return datetime.utcnow().isoformat()
+
+
 def set_grant_status(grant_id, status):
     conn = get_connection()
     try:
-        conn.execute("UPDATE grants SET status = ? WHERE id = ?", (status, grant_id))
+        conn.execute(
+            "UPDATE grants SET status = ?, updated_at = ? WHERE id = ?",
+            (status, _now(), grant_id),
+        )
         conn.commit()
     finally:
         conn.close()
@@ -563,9 +591,9 @@ def mark_grants_sent(grant_ids):
         now = datetime.utcnow().isoformat()
         placeholders = ",".join("?" * len(grant_ids))
         cur = conn.execute(
-            f"UPDATE grants SET sent_at = ? WHERE id IN ({placeholders}) "
+            f"UPDATE grants SET sent_at = ?, updated_at = ? WHERE id IN ({placeholders}) "
             f"AND (sent_at IS NULL OR sent_at = '')",
-            [now] + list(grant_ids),
+            [now, now] + list(grant_ids),
         )
         conn.commit()
         return cur.rowcount
@@ -582,8 +610,8 @@ def soft_delete_grants(grant_ids):
     try:
         placeholders = ",".join("?" * len(grant_ids))
         cur = conn.execute(
-            f"UPDATE grants SET is_deleted = 1 WHERE id IN ({placeholders})",
-            list(grant_ids),
+            f"UPDATE grants SET is_deleted = 1, updated_at = ? WHERE id IN ({placeholders})",
+            [_now()] + list(grant_ids),
         )
         conn.commit()
         return cur.rowcount
@@ -599,8 +627,8 @@ def restore_deleted(grant_ids):
     try:
         placeholders = ",".join("?" * len(grant_ids))
         cur = conn.execute(
-            f"UPDATE grants SET is_deleted = 0 WHERE id IN ({placeholders})",
-            list(grant_ids),
+            f"UPDATE grants SET is_deleted = 0, updated_at = ? WHERE id IN ({placeholders})",
+            [_now()] + list(grant_ids),
         )
         conn.commit()
         return cur.rowcount
@@ -679,6 +707,70 @@ def tombstone_and_delete(grant_ids, reason=""):
         conn.close()
 
 
+def export_sent_grants(since="", limit=200):
+    """Programs that have been sent out, for the read-only export API.
+
+    'Sent' is the curated set, not status='accepted': the accept/reject split was
+    replaced by the flat sent_at/is_deleted model (see the init_db comment), and
+    status='accepted' now only holds a handful of legacy rows. sent_at is what the
+    dashboard's Send action stamps, so it is what a consumer should mirror.
+
+    Ordered by the (updated_at, id) watermark and filtered with a STRICT '>' so a
+    consumer can pass the last row's cursor back and resume exactly where it left
+    off. id breaks ties because a bulk send stamps one identical timestamp across
+    every row in the batch — ordering by updated_at alone would let rows sharing
+    that timestamp be split across pages non-deterministically and silently skip
+    some. Callers get is_deleted rather than a filtered list so a program you
+    later withdraw propagates as a state change instead of vanishing.
+    """
+    conn = get_connection()
+    try:
+        limit = max(1, min(int(limit or 200), 1000))
+        params = []
+        where = ["IFNULL(g.sent_at, '') != ''"]
+        if since:
+            # Compare on the same (updated_at, id) tuple the ordering uses.
+            where.append("(IFNULL(g.updated_at, '') > ? OR "
+                         "(IFNULL(g.updated_at, '') = ? AND g.id > ?))")
+            cursor_ts, _, cursor_id = str(since).partition("|")
+            params += [cursor_ts, cursor_ts, int(cursor_id or 0)]
+        rows = conn.execute(
+            f"""SELECT g.id, g.title, g.url, g.normalized_url, g.description,
+                       g.detailed_description, g.published_date, g.deadline,
+                       g.deadline_date, g.funding_amount, g.eligibility,
+                       g.application_url, g.contact_info, g.item_type,
+                       g.keywords_matched, g.sent_at, g.is_deleted, g.status,
+                       g.found_at, g.updated_at,
+                       s.name AS site_name, s.category AS site_category
+                  FROM grants g JOIN sites s ON g.site_id = s.id
+                 WHERE {' AND '.join(where)}
+              ORDER BY IFNULL(g.updated_at, '') ASC, g.id ASC
+                 LIMIT ?""",
+            params + [limit + 1],          # +1 probes for a further page
+        ).fetchall()
+        has_more = len(rows) > limit
+        rows = rows[:limit]
+        items = []
+        for r in rows:
+            d = dict(r)
+            try:
+                d["keywords_matched"] = json.loads(d.get("keywords_matched") or "[]")
+            except (ValueError, TypeError):
+                d["keywords_matched"] = []
+            d["is_deleted"] = bool(d["is_deleted"])
+            # Stable identity: grant ids are NOT stable — the deferred-probe path
+            # hard-deletes rows and a later scan re-inserts them with a fresh id.
+            # normalized_url survives that, so consumers should key on it.
+            d["key"] = d.pop("normalized_url")
+            items.append(d)
+        next_cursor = (
+            f"{rows[-1]['updated_at'] or ''}|{rows[-1]['id']}" if rows else (since or "")
+        )
+        return {"items": items, "next_cursor": next_cursor, "has_more": has_more}
+    finally:
+        conn.close()
+
+
 def clear_tombstones():
     """Forget every rejected-link verdict so the next scan re-evaluates from
     scratch. Wired to the "full" re-scan, which exists to rebuild the list after
@@ -697,7 +789,10 @@ def set_published_date(grant_id, published_date):
     Unlike update_grant_details, this overwrites even when the new value is empty."""
     conn = get_connection()
     try:
-        conn.execute("UPDATE grants SET published_date = ? WHERE id = ?", (published_date or "", grant_id))
+        conn.execute(
+            "UPDATE grants SET published_date = ?, updated_at = ? WHERE id = ?",
+            (published_date or "", _now(), grant_id),
+        )
         conn.commit()
     finally:
         conn.close()
@@ -710,8 +805,8 @@ def bulk_set_status(grant_ids, status):
     try:
         placeholders = ",".join("?" * len(grant_ids))
         conn.execute(
-            f"UPDATE grants SET status = ? WHERE id IN ({placeholders})",
-            [status] + list(grant_ids),
+            f"UPDATE grants SET status = ?, updated_at = ? WHERE id IN ({placeholders})",
+            [status, _now()] + list(grant_ids),
         )
         conn.commit()
     finally:
@@ -810,7 +905,8 @@ def update_grant_details(grant_id, details):
                 contact_info = ?,
                 published_date = CASE WHEN ? != '' THEN ? ELSE published_date END,
                 details_scraped = 1,
-                details_scraped_at = ?
+                details_scraped_at = ?,
+                updated_at = ?
                WHERE id = ?""",
             (
                 details.get("detailed_description", ""),
@@ -822,6 +918,7 @@ def update_grant_details(grant_id, details):
                 details.get("contact_info", ""),
                 published_date, published_date,
                 datetime.utcnow().isoformat(),
+                _now(),
                 grant_id,
             ),
         )

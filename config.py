@@ -212,6 +212,19 @@ EXCEL_PATH = os.environ.get(
     os.path.join(os.path.expanduser("~"), "OneDrive", "Desktop", "Daily Check.xlsx"),
 )
 
+# --- Export API --------------------------------------------------------------
+# A read-only feed of SENT programs for a sibling platform to mirror, at
+# GET /api/export/grants. Authenticated by its own key sent as X-API-Key, kept
+# separate from the dashboard password so it can be rotated or revoked without
+# disturbing human logins, and so a machine consumer never holds a credential
+# that grants write access.
+#
+# Empty (the default) disables the endpoint outright — it 404s as if it were not
+# registered, so an unconfigured deployment exposes nothing. Set it in
+# settings.json ("export_api_key"), never here: config.py is in a public repo.
+# Generate one with:  python -c "import secrets; print(secrets.token_urlsafe(32))"
+EXPORT_API_KEY = os.environ.get("GRANTS_EXPORT_API_KEY", "")
+
 # --- Dashboard authentication -----------------------------------------------
 # Reachable from the internet through Cloudflare Tunnel, so it must not be open.
 #
@@ -276,6 +289,7 @@ if os.path.exists(_settings_path):
     TOMBSTONE_TTL_DAYS = int(_overrides.get("tombstone_ttl_days", TOMBSTONE_TTL_DAYS))
     PROBE_LIMIT_PER_SITE = int(_overrides.get("probe_limit_per_site", PROBE_LIMIT_PER_SITE))
     PROBE_LIMIT_TOTAL = int(_overrides.get("probe_limit_total", PROBE_LIMIT_TOTAL))
+    EXPORT_API_KEY = _overrides.get("export_api_key", EXPORT_API_KEY)
     AUTH_ENABLED = _overrides.get("auth_enabled", AUTH_ENABLED)
     AUTH_PASSWORD_HASH = _overrides.get("auth_password_hash", AUTH_PASSWORD_HASH)
     AUTH_SESSION_HOURS = int(_overrides.get("auth_session_hours", AUTH_SESSION_HOURS))
