@@ -96,15 +96,22 @@ Hourly is ample — the scanner itself only runs once an hour.
 | `deadline_date` | `YYYY-MM-DD` parsed from the above when parseable, else `""`. |
 | `funding_amount`, `eligibility`, `application_url`, `contact_info` | Best-effort extraction; **may be empty**. Treat as hints, not guarantees. |
 | `item_type` | `funding` or `news`. |
-| `keywords_matched` | Array of the keywords that matched. |
-| `site_name`, `site_category` | Source institution and its category. |
+| `keywords_matched` | Array of the keywords that matched. Always empty for a manual entry. |
+| `site_name`, `site_category` | Source institution and its category. For a manual entry these are what the operator typed, not a monitored site. |
 | `sent_at`, `found_at`, `updated_at` | UTC ISO-8601. |
 | `is_deleted` | `true` once withdrawn — mirror the change, don't drop the row. |
+| `is_manual` | `true` for an announcement added by hand in the dashboard rather than found by a scan. |
 | `status` | Legacy field. Ignore it; `sent_at` + `is_deleted` are authoritative. |
 
 The extraction fields are regex-based over Turkish institutional pages and fail
 open — empty means "not found", never "none exists". Anything shown to a user
 should fall back to `url`.
+
+Manual entries (`is_manual: true`) are typed by an operator, so their detail
+fields are as complete as whoever entered them made them — but `found_at` is
+when it was added, not when the source published it, and `published_date` is
+whatever was entered (possibly blank). They are otherwise ordinary records:
+same `key`, same sent/withdrawn lifecycle, same cursor.
 
 ## Security notes
 

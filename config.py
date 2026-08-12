@@ -212,6 +212,22 @@ EXCEL_PATH = os.environ.get(
     os.path.join(os.path.expanduser("~"), "OneDrive", "Desktop", "Daily Check.xlsx"),
 )
 
+# Categories a source (or a hand-added announcement) can belong to. Closed set:
+# the dashboard colours the donut chart and the row chips per category, so a
+# value outside this list would render uncoloured. Seeded sites already use
+# these exact strings — changing one orphans the existing rows that carry it.
+CATEGORIES = [
+    "Bakanlık",
+    "Kamu Kurumu",
+    "Kalkınma Ajansı",
+    "Avrupa Birliği",
+    "Sivil Toplum Kuruluşu",
+    "Duyuru",
+    "Büyükelçilik",
+    "Kamu Bankası",
+    "Diğer",
+]
+
 # --- Export API --------------------------------------------------------------
 # A read-only feed of SENT programs for a sibling platform to mirror, at
 # GET /api/export/grants. Authenticated by its own key sent as X-API-Key, kept

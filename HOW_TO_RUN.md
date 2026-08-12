@@ -2,7 +2,8 @@
 
 A Flask app that scans Turkish institutional websites for new grant/funding
 announcements, stores them in SQLite, and shows them in a dashboard where you
-triage each one — **Send** it out by email, or **Delete** (hide) it.
+triage each one — **Send** it out by email, or **Delete** (hide) it. You can also
+**add a program by hand** when the scan didn't find it (section 6).
 
 This document covers running it **locally on Windows**. For the Ubuntu server
 that actually runs it, see **[deploy/DEPLOY.md](deploy/DEPLOY.md)**.
@@ -125,7 +126,39 @@ current pending list, so don't use it just to change the interval.
 
 ---
 
-## 6. Configuration
+## 6. Adding a program by hand
+
+Some programs never turn up in a scan — a colleague forwards one, or the source
+publishes somewhere the monitor doesn't watch. **Add program** (top right of the
+Announcements list) puts one in the list directly.
+
+Title, link, source and category are required; everything else is optional. The
+source is free text (with suggestions from sources already in use) and the
+category comes from the fixed list in `config.CATEGORIES`, so a manual entry
+filters, sorts and charts exactly like a scraped one — and can be sent by email
+and mirrored through the export API the same way.
+
+What makes a manual entry different:
+
+- It carries a **MANUAL** badge instead of VERIFIED / NEW-TODAY, and a pencil
+  button that reopens the form. Scraped rows have no pencil: the next re-scrape
+  would overwrite the edit.
+- **A full re-scan will not delete it.** Normal announcements that aren't sent
+  are cleared when you re-fetch a new date range; nothing a person typed is,
+  because no scan could bring it back.
+- **Fetch Details is hidden on it.** A scrape replaces the detail fields
+  wholesale, blanks included, so it would erase what you typed. Use the pencil.
+- The link is deduplicated against the whole list. Adding one that already
+  exists is refused; if it is in the Deleted list, restore it instead.
+
+Behind the scenes these rows hang off a hidden placeholder site (they need one —
+`grants.site_id` is `NOT NULL`) and carry their own source and category, which
+override the site's everywhere the list is read. The placeholder is inactive and
+hidden from the Sources tab, so no scan ever visits it.
+
+---
+
+## 7. Configuration
 
 Overrides come from **environment variables** (that run only) and
 **`settings.json`** (persistent, next to `app.py`).
@@ -179,7 +212,7 @@ icon** in the dashboard. Secrets belong here, never in `config.py`.
 
 ---
 
-## 7. Useful files
+## 8. Useful files
 
 | File | Purpose |
 |------|---------|
@@ -195,7 +228,7 @@ icon** in the dashboard. Secrets belong here, never in `config.py`.
 
 ---
 
-## 8. Troubleshooting
+## 9. Troubleshooting
 
 - **`ModuleNotFoundError`** → dependencies not installed; run
   `pip install -r requirements.txt` with the venv activated.
@@ -210,6 +243,11 @@ icon** in the dashboard. Secrets belong here, never in `config.py`.
   deactivated on purpose because they block automated requests (currently the
   Japan embassy and Yeşilay); others fail transiently or have moved (a 404 means
   the URL needs updating in the dashboard).
+- **"That link is already in the announcements list"** → the program is already
+  there, possibly under a different title. Search for it; if it isn't in the
+  active list, look in **Deleted** and restore it.
+- **No pencil button on a row** → only hand-added rows are editable; see
+  section 6.
 - **An announcement you expected never appeared** → check in order: is the site
   active and is `last_error` empty; is the item's publish date inside the scan
   range; and is there a tombstone for it in `seen_links` from an earlier

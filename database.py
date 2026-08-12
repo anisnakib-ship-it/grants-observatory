@@ -207,6 +207,15 @@ def init_db():
         # every send, hide and restore. Touched by every mutation that alters an
         # exported field; see _touch().
         "updated_at": "TEXT DEFAULT ''",
+        # Hand-added announcements (see add_manual_grant). A manual row has no
+        # real source site, so it carries its own source name and category and
+        # overrides the joined sites columns everywhere the list is read
+        # (_SOURCE_EXPR / _CATEGORY_EXPR). is_manual also protects it from the
+        # scan's bulk cleanups — nothing a person typed should be swept away by
+        # a re-scan (see clear_pending_grants).
+        "is_manual": "INTEGER DEFAULT 0",
+        "manual_source": "TEXT DEFAULT ''",
+        "manual_category": "TEXT DEFAULT ''",
     }
     newly_added = [col for col in new_cols if col not in existing_cols]
     for col in newly_added:
@@ -284,14 +293,39 @@ def add_site(name, url, category="", css_selector=""):
         conn.close()
 
 
+# Manual announcements still need a sites row: grants.site_id is NOT NULL and
+# every list query joins sites. This placeholder satisfies that without being a
+# real source — it is inactive so no scan ever visits it, hidden from
+# get_all_sites so it can't be toggled or shown as a monitored source, and its
+# name/category are never displayed (each manual row carries its own; see
+# _SOURCE_EXPR). The URL is the identity key, so it must not change.
+MANUAL_SITE_URL = "manual://entries"
+MANUAL_SITE_NAME = "Manual entry"
+
+
+def _manual_site_id(conn):
+    """Row id of the placeholder site, creating it on first use."""
+    row = conn.execute("SELECT id FROM sites WHERE url = ?", (MANUAL_SITE_URL,)).fetchone()
+    if row:
+        return row["id"]
+    cur = conn.execute(
+        "INSERT INTO sites (name, url, category, is_active) VALUES (?, ?, '', 0)",
+        (MANUAL_SITE_NAME, MANUAL_SITE_URL),
+    )
+    return cur.lastrowid
+
+
 def get_all_sites(active_only=True):
+    """Real monitored sources. Excludes the manual placeholder — it is not a site
+    anyone scans, filters by, or should see in the Sources tab."""
     conn = get_connection()
     try:
-        query = "SELECT * FROM sites"
+        query = "SELECT * FROM sites WHERE url != ?"
+        params = [MANUAL_SITE_URL]
         if active_only:
-            query += " WHERE is_active = 1"
+            query += " AND is_active = 1"
         query += " ORDER BY name"
-        return [dict(row) for row in conn.execute(query).fetchall()]
+        return [dict(row) for row in conn.execute(query, params).fetchall()]
     finally:
         conn.close()
 
@@ -375,6 +409,23 @@ def add_grant(site_id, title, url, description="", keywords_matched=None, publis
             conn.commit()
             return None
 
+        # Already added by hand? Manual rows live under the placeholder site, so
+        # the site-scoped check above never sees them — without this, a scan that
+        # later reaches the same page on its real site would insert a second copy
+        # of a program the user already entered. Matched on URL only: the title
+        # they typed is their own wording and won't match the site's.
+        manual = conn.execute(
+            "SELECT id FROM grants WHERE is_manual = 1 AND normalized_url != ''"
+            " AND normalized_url = ? LIMIT 1",
+            (norm_url,),
+        ).fetchone()
+        if manual:
+            conn.execute(
+                "UPDATE grants SET last_seen_at = ? WHERE id = ?", (now, manual["id"])
+            )
+            conn.commit()
+            return None
+
         # Already judged and rejected by an earlier scan. Returning None here is
         # what saves the work: the caller never adds it to new_grants, so the
         # today-filter never fetches its detail page again.
@@ -401,11 +452,160 @@ def add_grant(site_id, title, url, description="", keywords_matched=None, publis
         conn.close()
 
 
+def _manual_values(data):
+    """Normalise one manual submission into the columns a grants row needs.
+
+    Whitelist, not a passthrough: only these keys are ever written, so a posted
+    body cannot set is_manual, sent_at or the dedup keys. Shape validation
+    (required fields, URL scheme, date format) happens in the API layer.
+    """
+    deadline = (data.get("deadline") or "").strip()
+    return {
+        "title": (data.get("title") or "").strip(),
+        "url": (data.get("url") or "").strip(),
+        "manual_source": (data.get("source") or "").strip(),
+        "manual_category": (data.get("category") or "").strip(),
+        "item_type": "news" if (data.get("item_type") or "") == "news" else "funding",
+        "description": (data.get("description") or "").strip(),
+        "published_date": (data.get("published_date") or "").strip(),
+        "deadline": deadline,
+        # The form posts an ISO date, so the parsed column is set from it
+        # directly instead of being re-extracted from free text.
+        "deadline_date": deadline,
+        "funding_amount": (data.get("funding_amount") or "").strip(),
+        "eligibility": (data.get("eligibility") or "").strip(),
+        "application_url": (data.get("application_url") or "").strip(),
+        "contact_info": (data.get("contact_info") or "").strip(),
+    }
+
+
+def _has_details(vals):
+    """Whether enough detail fields were filled in for the modal's details panel
+    to be worth showing. Drives details_scraped, which is what the UI checks."""
+    return any(vals[k] for k in (
+        "deadline", "funding_amount", "eligibility", "application_url", "contact_info"
+    ))
+
+
+def _url_taken(conn, norm_url, exclude_id=None):
+    """The existing row using this URL, if any — including soft-deleted ones, so
+    a re-add is reported as 'restore that instead' rather than silently making a
+    second copy that the Deleted view still hides."""
+    sql = "SELECT id, is_deleted FROM grants WHERE normalized_url != '' AND normalized_url = ?"
+    params = [norm_url]
+    if exclude_id is not None:
+        sql += " AND id != ?"
+        params.append(exclude_id)
+    return conn.execute(sql + " LIMIT 1", params).fetchone()
+
+
+def add_manual_grant(data):
+    """Insert a hand-entered announcement into the active list.
+
+    Returns (grant_id, error) where error is '' on success, 'duplicate' if the
+    URL is already listed, or 'deleted' if it is listed but hidden.
+
+    found_at is left to the column DEFAULT so a manual row carries the same
+    timestamp shape as a scraped one — the dashboard slices it by position.
+    """
+    vals = _manual_values(data)
+    conn = get_connection()
+    try:
+        norm_url = normalize_url(vals["url"])
+        dup = _url_taken(conn, norm_url)
+        if dup:
+            return None, ("deleted" if dup["is_deleted"] else "duplicate")
+        now = datetime.utcnow().isoformat()
+        cur = conn.execute(
+            """INSERT INTO grants
+                 (site_id, title, url, description, keywords_matched,
+                  normalized_url, normalized_title, last_seen_at, updated_at,
+                  published_date, deadline, deadline_date, item_type,
+                  funding_amount, eligibility, application_url, contact_info,
+                  details_scraped, details_scraped_at,
+                  is_manual, manual_source, manual_category)
+               VALUES (?, ?, ?, ?, '[]', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)""",
+            (
+                _manual_site_id(conn), vals["title"], vals["url"], vals["description"],
+                norm_url, normalize_title(vals["title"]), now, now,
+                vals["published_date"], vals["deadline"], vals["deadline_date"],
+                vals["item_type"], vals["funding_amount"], vals["eligibility"],
+                vals["application_url"], vals["contact_info"],
+                1 if _has_details(vals) else 0, now if _has_details(vals) else "",
+                vals["manual_source"], vals["manual_category"],
+            ),
+        )
+        conn.commit()
+        return cur.lastrowid, ""
+    finally:
+        conn.close()
+
+
+def update_manual_grant(grant_id, data):
+    """Edit a hand-entered announcement. Returns (ok, error), where error is
+    'not_manual' for a scraped row — those are owned by the scraper and would be
+    overwritten on the next re-scrape, so they are not editable here."""
+    vals = _manual_values(data)
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            "SELECT id, is_manual FROM grants WHERE id = ?", (grant_id,)
+        ).fetchone()
+        if not row:
+            return False, "not_found"
+        if not row["is_manual"]:
+            return False, "not_manual"
+        norm_url = normalize_url(vals["url"])
+        dup = _url_taken(conn, norm_url, exclude_id=grant_id)
+        if dup:
+            return False, ("deleted" if dup["is_deleted"] else "duplicate")
+        now = datetime.utcnow().isoformat()
+        conn.execute(
+            """UPDATE grants SET
+                 title = ?, url = ?, description = ?,
+                 normalized_url = ?, normalized_title = ?,
+                 published_date = ?, deadline = ?, deadline_date = ?, item_type = ?,
+                 funding_amount = ?, eligibility = ?, application_url = ?, contact_info = ?,
+                 details_scraped = ?, manual_source = ?, manual_category = ?,
+                 updated_at = ?
+               WHERE id = ?""",
+            (
+                vals["title"], vals["url"], vals["description"],
+                norm_url, normalize_title(vals["title"]),
+                vals["published_date"], vals["deadline"], vals["deadline_date"],
+                vals["item_type"], vals["funding_amount"], vals["eligibility"],
+                vals["application_url"], vals["contact_info"],
+                1 if _has_details(vals) else 0,
+                vals["manual_source"], vals["manual_category"],
+                now, grant_id,
+            ),
+        )
+        conn.commit()
+        return True, ""
+    finally:
+        conn.close()
+
+
+def distinct_sources():
+    """Names for the dashboard's Source filter: every monitored site plus the
+    sources typed on manual rows, which belong to no site."""
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT name FROM sites WHERE url != ?"
+            " UNION SELECT manual_source FROM grants WHERE IFNULL(manual_source, '') != ''",
+            (MANUAL_SITE_URL,),
+        ).fetchall()
+        return sorted({(r["name"] or "").strip() for r in rows} - {""})
+    finally:
+        conn.close()
+
+
 def get_recent_grants(limit=100, unread_only=False, status_filter=None, include_deleted=False):
     conn = get_connection()
     try:
-        query = """
-            SELECT g.*, s.name as site_name, s.category as site_category
+        query = f"""
+            SELECT g.*, {_SOURCE_EXPR} as site_name, {_CATEGORY_EXPR} as site_category
             FROM grants g
             JOIN sites s ON g.site_id = s.id
         """
@@ -427,11 +627,19 @@ def get_recent_grants(limit=100, unread_only=False, status_filter=None, include_
         conn.close()
 
 
+# A grant's source and category normally come from the site it was scraped from,
+# but a manual announcement has no real site (see _manual_site_id) and carries
+# its own. Every read path selects, filters and sorts through these so the two
+# kinds of row behave identically in the list, the filters and the donut.
+_SOURCE_EXPR = "COALESCE(NULLIF(g.manual_source, ''), s.name)"
+_CATEGORY_EXPR = "COALESCE(NULLIF(g.manual_category, ''), s.category)"
+
+
 _SORT_MAP = {
     "date-desc": "g.found_at DESC",
     "date-asc": "g.found_at ASC",
-    "source": "s.name ASC, g.found_at DESC",
-    "category": "s.category ASC, g.found_at DESC",
+    "source": f"{_SOURCE_EXPR} ASC, g.found_at DESC",
+    "category": f"{_CATEGORY_EXPR} ASC, g.found_at DESC",
     "published-desc": "g.published_date DESC, g.found_at DESC",
     # Soonest upcoming deadline first; unknown deadlines sorted last.
     "deadline": "CASE WHEN g.deadline_date = '' THEN 1 ELSE 0 END, g.deadline_date ASC",
@@ -465,15 +673,16 @@ def query_grants(status=None, category=None, source=None, q=None, days=None,
             conditions.append("g.status = ?")
             params.append(status)
         if category:
-            conditions.append("s.category = ?")
+            conditions.append(f"{_CATEGORY_EXPR} = ?")
             params.append(category)
         if source:
-            conditions.append("s.name = ?")
+            conditions.append(f"{_SOURCE_EXPR} = ?")
             params.append(source)
         if q:
             like = f"%{q.lower()}%"
             conditions.append(
-                "(LOWER(g.title) LIKE ? OR LOWER(g.description) LIKE ? OR LOWER(s.name) LIKE ?)"
+                "(LOWER(g.title) LIKE ? OR LOWER(g.description) LIKE ? "
+                f"OR LOWER({_SOURCE_EXPR}) LIKE ?)"
             )
             params += [like, like, like]
         if has_deadline:
@@ -503,7 +712,7 @@ def query_grants(status=None, category=None, source=None, q=None, days=None,
 
         order = _SORT_MAP.get(sort, _SORT_MAP["date-desc"])
         rows = conn.execute(
-            f"""SELECT g.*, s.name AS site_name, s.category AS site_category
+            f"""SELECT g.*, {_SOURCE_EXPR} AS site_name, {_CATEGORY_EXPR} AS site_category
                 FROM grants g JOIN sites s ON g.site_id = s.id{where}
                 ORDER BY {order} LIMIT ? OFFSET ?""",
             params + [int(limit), int(offset)],
@@ -517,12 +726,13 @@ def category_counts(status=None):
     """Count grants per site category (optionally filtered by status)."""
     conn = get_connection()
     try:
-        sql = "SELECT s.category AS cat, COUNT(*) AS n FROM grants g JOIN sites s ON g.site_id = s.id"
+        sql = (f"SELECT {_CATEGORY_EXPR} AS cat, COUNT(*) AS n "
+               "FROM grants g JOIN sites s ON g.site_id = s.id")
         params = []
         if status:
             sql += " WHERE g.status = ?"
             params.append(status)
-        sql += " GROUP BY s.category"
+        sql += " GROUP BY cat"
         return {(row["cat"] or "Diger"): row["n"] for row in conn.execute(sql, params).fetchall()}
     finally:
         conn.close()
@@ -569,11 +779,17 @@ def reset_content_hashes():
 def clear_pending_grants():
     """Delete un-acted-on announcements to rebuild the list for a new date range.
     Spares Sent ones (a record of what went out) and soft-deleted ones (so they
-    stay hidden and aren't re-added by the next scan). Returns the number removed."""
+    stay hidden and aren't re-added by the next scan). Returns the number removed.
+
+    Manual entries are spared too: no scan can rediscover something a person
+    typed in, so deleting one here would destroy it permanently — and a re-scan
+    for a different date range is not a request to throw away hand-entered work.
+    """
     conn = get_connection()
     try:
         cur = conn.execute(
-            "DELETE FROM grants WHERE (sent_at IS NULL OR sent_at = '') AND is_deleted = 0"
+            "DELETE FROM grants WHERE (sent_at IS NULL OR sent_at = '')"
+            " AND is_deleted = 0 AND IFNULL(is_manual, 0) = 0"
         )
         conn.commit()
         return cur.rowcount
@@ -740,8 +956,8 @@ def export_sent_grants(since="", limit=200):
                        g.deadline_date, g.funding_amount, g.eligibility,
                        g.application_url, g.contact_info, g.item_type,
                        g.keywords_matched, g.sent_at, g.is_deleted, g.status,
-                       g.found_at, g.updated_at,
-                       s.name AS site_name, s.category AS site_category
+                       g.found_at, g.updated_at, g.is_manual,
+                       {_SOURCE_EXPR} AS site_name, {_CATEGORY_EXPR} AS site_category
                   FROM grants g JOIN sites s ON g.site_id = s.id
                  WHERE {' AND '.join(where)}
               ORDER BY IFNULL(g.updated_at, '') ASC, g.id ASC
@@ -758,6 +974,8 @@ def export_sent_grants(since="", limit=200):
             except (ValueError, TypeError):
                 d["keywords_matched"] = []
             d["is_deleted"] = bool(d["is_deleted"])
+            # Lets a consumer tell a hand-entered program from a scraped one.
+            d["is_manual"] = bool(d["is_manual"])
             # Stable identity: grant ids are NOT stable — the deferred-probe path
             # hard-deletes rows and a later scan re-inserts them with a fresh id.
             # normalized_url survives that, so consumers should key on it.
@@ -878,7 +1096,7 @@ def get_grant_by_id(grant_id):
     conn = get_connection()
     try:
         row = conn.execute(
-            """SELECT g.*, s.name as site_name, s.category as site_category
+            f"""SELECT g.*, {_SOURCE_EXPR} as site_name, {_CATEGORY_EXPR} as site_category
                FROM grants g JOIN sites s ON g.site_id = s.id
                WHERE g.id = ?""",
             (grant_id,),

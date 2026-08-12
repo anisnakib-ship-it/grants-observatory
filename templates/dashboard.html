@@ -129,6 +129,93 @@
         </div>
     </aside>
 
+    <!-- ===== ADD / EDIT PROGRAM DRAWER =====
+         One form for both: manualEditId decides whether saving POSTs to
+         /api/grants/manual or /api/grants/<id>/manual. Its own backdrop so it
+         doesn't share the settings drawer's open/close handlers. -->
+    <div class="drawer-backdrop" id="manualBackdrop" aria-hidden="true"></div>
+    <aside class="drawer drawer-wide" id="manualDrawer" role="dialog" aria-label="Add program" aria-hidden="true">
+        <div class="drawer-header">
+            <h2 id="manualHeading" data-i18n="add_program">Add program</h2>
+            <button class="drawer-close" id="manualCloseBtn" aria-label="Close">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <div class="drawer-body">
+            <p class="form-error" id="manualError" role="alert" style="display:none;"></p>
+            <div class="setting-group">
+                <div class="form-row">
+                    <label for="mTitle" data-i18n="field_title">Title *</label>
+                    <input type="text" id="mTitle" class="form-input" maxlength="500" autocomplete="off">
+                </div>
+                <div class="form-row">
+                    <label for="mUrl" data-i18n="field_url">Link *</label>
+                    <input type="url" id="mUrl" class="form-input" placeholder="https://..." autocomplete="off">
+                </div>
+                <div class="form-row">
+                    <label for="mSource" data-i18n="field_source">Source *</label>
+                    <input type="text" id="mSource" class="form-input" list="manualSourceList" maxlength="200" autocomplete="off" placeholder="TÜBİTAK">
+                    <datalist id="manualSourceList"></datalist>
+                </div>
+                <div class="form-grid">
+                    <div class="form-row">
+                        <label for="mCategory" data-i18n="field_category">Category *</label>
+                        <select id="mCategory" class="form-input">
+                            <option value=""></option>
+                            {% for cat in config.CATEGORIES %}<option value="{{ cat }}">{{ cat }}</option>{% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label for="mType" data-i18n="field_type">Type</label>
+                        <select id="mType" class="form-input">
+                            <option value="funding" data-i18n="type_funding">Funding call</option>
+                            <option value="news" data-i18n="type_news">News / activity</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <label for="mDesc" data-i18n="field_description">Description</label>
+                    <textarea id="mDesc" class="form-input" rows="3"></textarea>
+                </div>
+                <div class="form-grid">
+                    <div class="form-row">
+                        <label for="mPublished" data-i18n="field_published">Publish date</label>
+                        <input type="date" id="mPublished" class="form-input">
+                    </div>
+                    <div class="form-row">
+                        <label for="mDeadline" data-i18n="field_deadline">Deadline</label>
+                        <input type="date" id="mDeadline" class="form-input">
+                    </div>
+                </div>
+                <p class="form-hint" data-i18n="manual_dates_hint">Leave the publish date blank to use today.</p>
+            </div>
+            <div class="setting-group">
+                <h3 data-i18n="optional_details">Optional details</h3>
+                <div class="form-row">
+                    <label for="mAmount" data-i18n="funding_amount">Funding Amount</label>
+                    <input type="text" id="mAmount" class="form-input" maxlength="200" autocomplete="off">
+                </div>
+                <div class="form-row">
+                    <label for="mEligibility" data-i18n="who_can_apply">Who Can Apply</label>
+                    <textarea id="mEligibility" class="form-input" rows="2"></textarea>
+                </div>
+                <div class="form-row">
+                    <label for="mApplyUrl" data-i18n="field_apply_url">Application link</label>
+                    <input type="url" id="mApplyUrl" class="form-input" placeholder="https://..." autocomplete="off">
+                </div>
+                <div class="form-row">
+                    <label for="mContact" data-i18n="contact">Contact</label>
+                    <textarea id="mContact" class="form-input" rows="2"></textarea>
+                </div>
+            </div>
+        </div>
+        <div class="drawer-footer">
+            <button class="btn-save" id="manualSaveBtn" type="button">
+                <span id="manualSaveText" data-i18n="save_program">Save program</span>
+            </button>
+        </div>
+    </aside>
+
     <!-- ===== GRANT DETAIL MODAL ===== -->
     <div class="modal-backdrop" id="modalBackdrop" aria-hidden="true"></div>
     <div class="modal" id="grantModal" role="dialog" aria-label="Grant details" aria-hidden="true">
@@ -339,6 +426,7 @@
         <section id="view-grants" class="view active" role="tabpanel" aria-labelledby="tab-grants">
 
             <!-- Sub-tabs: Announcements / Deleted -->
+            <div class="list-header">
             <div class="sub-tabs" id="grantSubTabs">
                 <button class="sub-tab active" data-subtab="active">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
@@ -349,6 +437,11 @@
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                     <span data-i18n="deleted">Deleted</span>
                     <span class="sub-tab-count">{{ stats.deleted_grants }}</span>
+                </button>
+            </div>
+                <button class="add-program-btn" id="addProgramBtn" type="button" title="Add a program the scan didn't find">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    <span data-i18n="add_program">Add program</span>
                 </button>
             </div>
 
@@ -793,6 +886,28 @@
             list_empty_desc: "Run a new scan to discover today's announcements.",
             no_deleted: 'Nothing deleted',
             no_deleted_desc: 'Announcements you delete appear here and can be restored.',
+            // Manually added programs
+            add_program: 'Add program',
+            edit_program: 'Edit program',
+            manual_badge: 'MANUAL',
+            edit: 'Edit',
+            field_title: 'Title *',
+            field_url: 'Link *',
+            field_source: 'Source *',
+            field_category: 'Category *',
+            field_type: 'Type',
+            field_description: 'Description',
+            field_published: 'Publish date',
+            field_deadline: 'Deadline',
+            field_apply_url: 'Application link',
+            type_funding: 'Funding call',
+            type_news: 'News / activity',
+            optional_details: 'Optional details',
+            manual_dates_hint: 'Leave the publish date blank to use today.',
+            save_program: 'Save program',
+            save_changes: 'Save changes',
+            toast_manual_added: 'Program added to the list',
+            toast_manual_updated: 'Program updated',
         },
         tr: {
             monitoring_sources: '{0} kaynak izleniyor',
@@ -917,6 +1032,27 @@
             list_empty_desc: 'Bugünün duyurularını keşfetmek için yeni bir tarama çalıştırın.',
             no_deleted: 'Silinen bir şey yok',
             no_deleted_desc: 'Sildiğiniz duyurular burada görünür ve geri alınabilir.',
+            add_program: 'Program ekle',
+            edit_program: 'Programı düzenle',
+            manual_badge: 'MANUEL',
+            edit: 'Düzenle',
+            field_title: 'Başlık *',
+            field_url: 'Bağlantı *',
+            field_source: 'Kaynak *',
+            field_category: 'Kategori *',
+            field_type: 'Tür',
+            field_description: 'Açıklama',
+            field_published: 'Yayın tarihi',
+            field_deadline: 'Son başvuru',
+            field_apply_url: 'Başvuru bağlantısı',
+            type_funding: 'Fon çağrısı',
+            type_news: 'Haber / faaliyet',
+            optional_details: 'İsteğe bağlı detaylar',
+            manual_dates_hint: 'Yayın tarihi boş bırakılırsa bugün kullanılır.',
+            save_program: 'Programı kaydet',
+            save_changes: 'Değişiklikleri kaydet',
+            toast_manual_added: 'Program listeye eklendi',
+            toast_manual_updated: 'Program güncellendi',
         }
     };
 
@@ -1362,20 +1498,30 @@
             if (del) del.textContent = s.deleted_grants;
             const tabBadge = document.getElementById('tabBadge');
             if (tabBadge) { if (s.active_grants > 0) tabBadge.textContent = s.active_grants; else tabBadge.remove(); }
+            // The header tiles count the same rows as these badges, so they have
+            // to move together — adding, deleting or restoring one otherwise
+            // leaves the tile showing the count from page load.
+            setText('statActive', s.active_grants);
+            setText('statSent', s.sent_grants);
+            setText('statDeleted', s.deleted_grants);
             gridTotal.active = s.active_grants;
             gridTotal.deleted = s.deleted_grants;
             updateGridChrome(activeStatus);
         } catch (e) {}
     }
 
-    // Build the Source dropdown from ALL sites (not just the current page).
+    // Build the Source dropdown from every source in the list — monitored sites
+    // plus the ones typed on manual entries. Rebuilt rather than appended to, so
+    // it can be re-run after a manual entry introduces a new source name.
     async function populateSourceFilter() {
         const sel = document.getElementById('sourceFilter');
         if (!sel) return;
         try {
-            const sites = await safeFetch('/api/sites');
-            const names = [...new Set(sites.map(s => s.name).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+            const names = (await safeFetch('/api/sources')).sort((a, b) => a.localeCompare(b));
+            const chosen = sel.value;
+            [...sel.options].slice(1).forEach(o => o.remove());   // keep "All Sources"
             names.forEach(n => { const o = document.createElement('option'); o.value = n; o.textContent = n; sel.appendChild(o); });
+            sel.value = chosen;   // '' if the previous choice no longer exists
         } catch (e) {}
     }
 
@@ -1447,6 +1593,10 @@
         document.getElementById('modalApplyBtn').style.display = 'none';
         const fetchBtn = document.getElementById('modalFetchBtn');
         fetchBtn.disabled = false;
+        // Scraping a manual row would replace what the user typed with whatever
+        // the page yields — including blanks for fields it can't find. The edit
+        // form is how a hand-added program changes.
+        fetchBtn.style.display = (card.dataset.manual === '1') ? 'none' : '';
         document.getElementById('fetchBtnText').textContent = t('fetch_details');
 
         // If details already scraped, load them
@@ -1709,6 +1859,116 @@
         return data;
     }
 
+    // ===== ADD / EDIT A PROGRAM BY HAND =====
+    // null while the form is adding; a grant id while it is editing that row.
+    let manualEditId = null;
+    // Form field id -> the key the API expects. One map drives reset, prefill
+    // and submit, so a new field only has to be added in one place.
+    const MANUAL_FIELDS = {
+        mTitle: 'title', mUrl: 'url', mSource: 'source', mCategory: 'category',
+        mType: 'item_type', mDesc: 'description', mPublished: 'published_date',
+        mDeadline: 'deadline', mAmount: 'funding_amount', mEligibility: 'eligibility',
+        mApplyUrl: 'application_url', mContact: 'contact_info',
+    };
+
+    function showManualError(msg) {
+        const el = document.getElementById('manualError');
+        el.textContent = msg || '';
+        el.style.display = msg ? '' : 'none';
+    }
+
+    function openManual(grant) {
+        manualEditId = grant ? grant.id : null;
+        Object.keys(MANUAL_FIELDS).forEach(id => { document.getElementById(id).value = ''; });
+        document.getElementById('mType').value = 'funding';
+        if (grant) {
+            document.getElementById('mTitle').value = grant.title || '';
+            document.getElementById('mUrl').value = grant.url || '';
+            document.getElementById('mSource').value = grant.manual_source || grant.site_name || '';
+            document.getElementById('mCategory').value = grant.manual_category || grant.site_category || '';
+            document.getElementById('mType').value = grant.item_type === 'news' ? 'news' : 'funding';
+            document.getElementById('mDesc').value = grant.description || '';
+            document.getElementById('mPublished').value = grant.published_date || '';
+            // The date input only accepts YYYY-MM-DD, which is what the parsed
+            // column holds; grant.deadline may be free text on older rows.
+            document.getElementById('mDeadline').value = grant.deadline_date || '';
+            document.getElementById('mAmount').value = grant.funding_amount || '';
+            document.getElementById('mEligibility').value = grant.eligibility || '';
+            document.getElementById('mApplyUrl').value = grant.application_url || '';
+            document.getElementById('mContact').value = grant.contact_info || '';
+        }
+        document.getElementById('manualHeading').textContent = t(grant ? 'edit_program' : 'add_program');
+        document.getElementById('manualSaveText').textContent = t(grant ? 'save_changes' : 'save_program');
+        showManualError('');
+        populateSourceSuggestions();
+        document.getElementById('manualDrawer').classList.add('open');
+        document.getElementById('manualDrawer').setAttribute('aria-hidden','false');
+        document.getElementById('manualBackdrop').classList.add('open');
+        document.getElementById('manualBackdrop').setAttribute('aria-hidden','false');
+        document.getElementById('mTitle').focus();
+    }
+
+    function closeManual() {
+        document.getElementById('manualDrawer').classList.remove('open');
+        document.getElementById('manualDrawer').setAttribute('aria-hidden','true');
+        document.getElementById('manualBackdrop').classList.remove('open');
+        document.getElementById('manualBackdrop').setAttribute('aria-hidden','true');
+        manualEditId = null;
+    }
+
+    async function editManualGrant(id) {
+        try {
+            openManual(await safeFetch('/api/grants/' + id));
+        } catch (e) {}
+    }
+
+    async function saveManual() {
+        const btn = document.getElementById('manualSaveBtn');
+        const editing = manualEditId !== null;
+        const url = editing ? ('/api/grants/' + manualEditId + '/manual') : '/api/grants/manual';
+        const payload = {};
+        Object.keys(MANUAL_FIELDS).forEach(id => {
+            payload[MANUAL_FIELDS[id]] = document.getElementById(id).value.trim();
+        });
+        btn.disabled = true;
+        try {
+            // Not safeFetch: a rejected submission answers with the reason
+            // (missing field, duplicate link), and that belongs in the form
+            // rather than in a toast that says "HTTP 400".
+            const r = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok) {
+                showManualError(d.error || ('HTTP ' + r.status));
+                btn.disabled = false;
+                return;
+            }
+            closeManual();
+            toast(t(editing ? 'toast_manual_updated' : 'toast_manual_added'), 'success');
+            await loadGrid(activeStatus, false);
+            refreshBadges();
+            populateSourceFilter();   // a new manual source is filterable at once
+        } catch (e) {
+            showManualError('' + e.message);
+        }
+        btn.disabled = false;
+    }
+
+    // Suggest sources already in use so repeat entries stay spelled the same —
+    // the Source filter matches on the exact string.
+    async function populateSourceSuggestions() {
+        const dl = document.getElementById('manualSourceList');
+        if (!dl) return;
+        try {
+            const names = await safeFetch('/api/sources');
+            dl.innerHTML = '';
+            names.forEach(n => { const o = document.createElement('option'); o.value = n; dl.appendChild(o); });
+        } catch (e) {}
+    }
+
     // ===== TOAST =====
     function toast(msg, type) {
         type = type || 'info';
@@ -1865,6 +2125,12 @@
                 triageGrant(deleteBtn.dataset.grantId, 'delete', deleteBtn);
                 return;
             }
+            const editBtn = e.target.closest('.btn-edit');
+            if (editBtn) {
+                e.preventDefault();
+                editManualGrant(editBtn.dataset.grantId);
+                return;
+            }
             const restoreBtn = e.target.closest('.btn-restore');
             if (restoreBtn) {
                 e.preventDefault();
@@ -1966,6 +2232,12 @@
         document.getElementById('saveSettingsBtn').addEventListener('click', saveSettings);
         document.getElementById('fetchRangeBtn').addEventListener('click', fetchRange);
 
+        // Add / edit a program by hand
+        document.getElementById('addProgramBtn').addEventListener('click', function(){ openManual(null); });
+        document.getElementById('manualCloseBtn').addEventListener('click', closeManual);
+        document.getElementById('manualBackdrop').addEventListener('click', closeManual);
+        document.getElementById('manualSaveBtn').addEventListener('click', saveManual);
+
         // Modal
         document.getElementById('modalCloseBtn').addEventListener('click', closeModal);
         document.getElementById('modalBackdrop').addEventListener('click', closeModal);
@@ -1991,6 +2263,7 @@
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
                 if (document.getElementById('grantModal').classList.contains('open')) closeModal();
+                else if (document.getElementById('manualDrawer').classList.contains('open')) closeManual();
                 else if (document.getElementById('settingsDrawer').classList.contains('open')) closeSettings();
                 else if (document.getElementById('confirmDialog').classList.contains('open')) closeConfirm();
             }

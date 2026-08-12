@@ -1,4 +1,5 @@
 import logging
+import re
 import secrets
 import threading
 import time
@@ -545,6 +546,14 @@ def api_fetch_grant_details(grant_id):
     grant = database.get_grant_by_id(grant_id)
     if not grant:
         return jsonify({"status": "error", "error": "Grant not found"}), 404
+    # A scrape overwrites the detail fields wholesale, blanks included, so on a
+    # hand-added row it would silently destroy what the user typed. The dashboard
+    # hides the button for those; this refuses the call behind it.
+    if grant.get("is_manual"):
+        return jsonify({
+            "status": "error",
+            "error": "Edit this announcement instead — it was added by hand",
+        }), 409
 
     result = scrape_grant_details(grant["url"])
     if result["status"] == "ok":
@@ -562,6 +571,85 @@ def api_get_grant(grant_id):
     if not grant:
         return jsonify({"status": "error", "error": "Grant not found"}), 404
     return jsonify(grant)
+
+
+_ISO_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+# What a failed manual submission tells the user. Kept here so the API answers
+# with a sentence rather than a code the frontend has to translate into one.
+_MANUAL_ERRORS = {
+    "duplicate": "That link is already in the announcements list",
+    "deleted": "That link is in the Deleted list — restore it instead of adding it again",
+    "not_found": "Announcement not found",
+    "not_manual": "Only manually added announcements can be edited",
+}
+
+
+def _validate_manual(data):
+    """Check one manual submission. Returns an error message, or '' if it's fine.
+
+    Dates are required to be ISO because deadline_date is compared as a string in
+    SQL (the expiry filter and the deadline sort): any other format sorts wrong
+    and silently drops the program out of the default list.
+    """
+    if not (data.get("title") or "").strip():
+        return "Title is required"
+    url = (data.get("url") or "").strip()
+    if not url:
+        return "Link is required"
+    if not url.lower().startswith(("http://", "https://")):
+        return "Link must start with http:// or https://"
+    if not (data.get("source") or "").strip():
+        return "Source is required"
+    if (data.get("category") or "").strip() not in config.CATEGORIES:
+        return "Pick a category"
+    for field, label in (("published_date", "Publish date"), ("deadline", "Deadline")):
+        val = (data.get(field) or "").strip()
+        if val and not _ISO_DATE_RE.match(val):
+            return f"{label} must be in YYYY-MM-DD format"
+    apply_url = (data.get("application_url") or "").strip()
+    if apply_url and not apply_url.lower().startswith(("http://", "https://")):
+        return "Application link must start with http:// or https://"
+    return ""
+
+
+@app.route("/api/grants/manual", methods=["POST"])
+def api_add_manual_grant():
+    """Add an announcement by hand — for a program found outside the scan.
+
+    It lands in the same active list as a scraped one and is triaged, sent and
+    exported identically; only its origin differs (database.add_manual_grant).
+    """
+    data = request.json or {}
+    error = _validate_manual(data)
+    if error:
+        return jsonify({"status": "error", "error": error}), 400
+    grant_id, err = database.add_manual_grant(data)
+    if err:
+        return jsonify({"status": "error", "error": _MANUAL_ERRORS[err]}), 409
+    logger.info("Manual announcement added: %s", (data.get("title") or "")[:80])
+    return jsonify({"status": "ok", "id": grant_id})
+
+
+@app.route("/api/grants/<int:grant_id>/manual", methods=["POST"])
+def api_update_manual_grant(grant_id):
+    """Edit a hand-added announcement. Scraped rows are rejected — the next
+    re-scrape would overwrite the edit, so allowing it would be a lie."""
+    data = request.json or {}
+    error = _validate_manual(data)
+    if error:
+        return jsonify({"status": "error", "error": error}), 400
+    ok, err = database.update_manual_grant(grant_id, data)
+    if not ok:
+        status = 404 if err == "not_found" else 409
+        return jsonify({"status": "error", "error": _MANUAL_ERRORS[err]}), status
+    return jsonify({"status": "ok", "id": grant_id})
+
+
+@app.route("/api/sources")
+def api_sources():
+    """Source names for the list filter: monitored sites plus manual sources."""
+    return jsonify(database.distinct_sources())
 
 
 @app.route("/api/sites")

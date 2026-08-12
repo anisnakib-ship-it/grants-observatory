@@ -1379,3 +1379,61 @@ input, select { font-family: inherit; }
     letter-spacing: .06em; flex-shrink: 0;
 }
 .program-card:has(.news-type) { box-shadow: inset 3px 0 0 var(--purple); }
+
+
+/* =========== MANUALLY ADDED PROGRAMS =========== */
+/* Sub-tabs row with the "Add program" action pushed to the far end. */
+.list-header {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; flex-wrap: wrap; margin-bottom: 16px;
+}
+.list-header .sub-tabs { margin-bottom: 0; }
+
+.add-program-btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 9px 16px; border-radius: var(--radius);
+    background: var(--cyan-dim); border: 1px solid rgba(57,210,192,0.22);
+    color: var(--cyan); font-size: 0.84rem; font-weight: 600;
+    transition: all .15s var(--ease);
+}
+.add-program-btn:hover { background: rgba(57,210,192,0.2); border-color: rgba(57,210,192,0.35); transform: translateY(-1px); }
+.add-program-btn:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+
+/* MANUAL chip — a hand-added row carries this instead of VERIFIED/NEW-TODAY. */
+.row-flag.manual {
+    display: inline-flex; align-items: center; gap: 3px;
+    color: var(--cyan); background: var(--cyan-dim);
+}
+.row-flag.manual svg { stroke: var(--cyan); }
+.row-actions .btn-edit:hover { background: var(--cyan-dim); border-color: var(--cyan); color: var(--cyan); }
+
+/* The add/edit form needs more room than the settings drawer's label|value rows. */
+.drawer-wide { width: 480px; right: -500px; }
+.drawer-wide.open { right: 0; }
+
+.form-row { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.form-row label { font-size: 0.8rem; color: var(--text-2); font-weight: 500; }
+.form-input {
+    width: 100%; padding: 9px 12px; border-radius: 8px;
+    background: var(--card); border: 1px solid var(--border);
+    color: var(--text); font-size: 0.85rem; outline: none;
+    transition: border-color .15s;
+}
+.form-input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-dim); }
+textarea.form-input { resize: vertical; min-height: 62px; line-height: 1.5; }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.form-hint { font-size: 0.76rem; color: var(--text-3); line-height: 1.45; margin-top: -4px; }
+
+/* Why a submission was rejected, shown in the form rather than as a toast. */
+.form-error {
+    padding: 10px 12px; margin-bottom: 4px; border-radius: 8px;
+    background: var(--red-dim); border: 1px solid rgba(248,81,73,0.28);
+    color: var(--red); font-size: 0.82rem;
+}
+
+@media (max-width: 600px) {
+    .drawer-wide { width: 100%; max-width: 100vw; right: -100vw; }
+    .form-grid { grid-template-columns: 1fr; }
+    .list-header { align-items: stretch; }
+    .add-program-btn { justify-content: center; }
+}
