@@ -1,7 +1,9 @@
 import hashlib
+import ipaddress
 import json
 import logging
 import re
+import socket
 import ssl
 from datetime import date, datetime
 from email.utils import parsedate_to_datetime
@@ -245,6 +247,42 @@ def matches_keywords(text, context=""):
         return weak
 
     return []
+
+
+def check_public_url(url):
+    """Return an error message if `url` isn't a fetchable public web address.
+
+    Guards the one place a fetch target is typed by a person rather than read
+    from the sites table: the manual-entry preview. This host also runs several
+    unrelated apps on loopback and the LAN, so without this an operator could
+    paste `http://127.0.0.1:3000` and have the server pull an internal app's
+    page into the form.
+
+    Every resolved address must be global — a name can resolve to several, and
+    checking only the first would let a dual-homed host through. This resolves
+    and then requests, so a name that changes answers in between is not covered;
+    that is a deliberate limit, since the caller is an authenticated operator
+    rather than the open internet.
+    """
+    parsed = urlparse(url or "")
+    if parsed.scheme not in ("http", "https"):
+        return "Link must start with http:// or https://"
+    host = parsed.hostname
+    if not host:
+        return "That link has no host name"
+    try:
+        infos = socket.getaddrinfo(host, parsed.port or (443 if parsed.scheme == "https" else 80),
+                                   proto=socket.IPPROTO_TCP)
+    except socket.gaierror:
+        return f"Could not resolve {host}"
+    for info in infos:
+        try:
+            ip = ipaddress.ip_address(info[4][0])
+        except ValueError:
+            return f"Could not resolve {host}"
+        if not ip.is_global or ip.is_multicast:
+            return "That address is not a public website"
+    return ""
 
 
 def fetch_page(url):
@@ -531,6 +569,55 @@ def _url_date(url):
     return ""
 
 
+"""Site name suffixes a CMS appends to <title>, e.g.
+"2026 Çağrısı | KOSGEB" or "Duyuru - T.C. Sanayi Bakanlığı". Split on the LAST
+separator so a title containing a dash keeps it."""
+_TITLE_TAIL_RE = re.compile(r"\s+[|–—\-]\s+[^|–—\-]{2,60}$")
+
+
+def extract_page_title(soup):
+    """The announcement's own heading, best-effort.
+
+    Trust order: og:title (what the site itself says the page is called), then
+    the first non-empty <h1>, then <title> minus the site-name tail. Scans never
+    needed this — they take the title from the listing link that led to the page
+    — so it exists for the manual-entry preview, where there is no listing.
+    """
+    og = soup.select_one('meta[property="og:title"], meta[name="og:title"]')
+    if og and (og.get("content") or "").strip():
+        return _WS_CLEAN(og["content"].strip())[:500]
+    for h1 in soup.find_all("h1"):
+        text = extract_text(h1).strip()
+        if len(text) >= 8:
+            return _WS_CLEAN(text)[:500]
+    if soup.title and (soup.title.string or "").strip():
+        raw = _WS_CLEAN(soup.title.string.strip())
+        trimmed = _TITLE_TAIL_RE.sub("", raw).strip()
+        # Only accept the trim if something substantial survives; a page titled
+        # just "KOSGEB - Duyuru" would otherwise collapse to "KOSGEB".
+        return (trimmed if len(trimmed) >= 8 else raw)[:500]
+    return ""
+
+
+def _WS_CLEAN(text):
+    return re.sub(r"\s+", " ", text or "").strip()
+
+
+def summarize_text(text, limit=400):
+    """A short description from the page body: whole sentences up to `limit`,
+    never a mid-word cut. Falls back to a hard slice if the text has no
+    sentence breaks (common on pages that are one long run-on paragraph)."""
+    text = _WS_CLEAN(text)
+    if len(text) <= limit:
+        return text
+    cut = text[:limit]
+    stop = max(cut.rfind(". "), cut.rfind("! "), cut.rfind("? "))
+    if stop > limit // 3:
+        return cut[: stop + 1].strip()
+    space = cut.rfind(" ")
+    return (cut[:space] if space > limit // 2 else cut).strip() + "…"
+
+
 def scrape_grant_details(grant_url):
     """Visit a grant page and extract detailed information."""
     try:
@@ -539,6 +626,8 @@ def scrape_grant_details(grant_url):
 
         # Publish date by trust order (read before stripping noise tags).
         published_date, pub_confidence = extract_published_date(soup)
+        # Read the heading before the noise-tag strip below removes <header>.
+        page_title = extract_page_title(soup)
 
         # Remove noise elements
         for tag in soup(["script", "style", "nav", "footer", "header", "aside", "iframe", "noscript"]):
@@ -552,6 +641,8 @@ def scrape_grant_details(grant_url):
             "application_url": "",
             "contact_info": "",
             "published_date": published_date,
+            # For the manual-entry preview; update_grant_details ignores it.
+            "page_title": page_title,
         }
 
         # Extract main content - try common content selectors
@@ -678,6 +769,9 @@ def scrape_grant_details(grant_url):
                 details["contact_info"] = match.group(1).strip()[:300]
                 break
 
+        # Set last, not with the rest of the dict: the body-text fallback above
+        # downgrades pub_confidence to 'low' after the dict is built.
+        details["published_confidence"] = pub_confidence
         return {"status": "ok", "details": details}
 
     except requests.exceptions.Timeout:

@@ -586,6 +586,36 @@ def update_manual_grant(grant_id, data):
         conn.close()
 
 
+def _host_key(url):
+    """Registrable-ish host for matching two URLs to the same institution:
+    lowercased, port and a leading 'www.' removed."""
+    host = (urlsplit(url or "").hostname or "").lower()
+    return host[4:] if host.startswith("www.") else host
+
+
+def site_for_url(url):
+    """The monitored site a URL belongs to, as {'name', 'category'}, or None.
+
+    Lets the manual-entry preview fill in source and category for a link from a
+    source already being watched — the one part of the form no page can supply.
+    Matched on host, since a program's detail page sits on the same domain as
+    the listing being monitored but never at the same path.
+    """
+    key = _host_key(url)
+    if not key:
+        return None
+    conn = get_connection()
+    try:
+        for row in conn.execute(
+            "SELECT name, category, url FROM sites WHERE url != ?", (MANUAL_SITE_URL,)
+        ):
+            if _host_key(row["url"]) == key:
+                return {"name": row["name"], "category": row["category"] or ""}
+        return None
+    finally:
+        conn.close()
+
+
 def distinct_sources():
     """Names for the dashboard's Source filter: every monitored site plus the
     sources typed on manual rows, which belong to no site."""

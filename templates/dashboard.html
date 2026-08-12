@@ -151,6 +151,12 @@
                 <div class="form-row">
                     <label for="mUrl" data-i18n="field_url">Link *</label>
                     <input type="url" id="mUrl" class="form-input" placeholder="https://..." autocomplete="off">
+                    <!-- Appears once the link looks fetchable; reads the page and
+                         fills whatever is still blank. -->
+                    <button type="button" class="fill-from-link" id="fillFromLinkBtn" style="display:none;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                        <span id="fillFromLinkText" data-i18n="fill_from_link">Fill from link</span>
+                    </button>
                 </div>
                 <div class="form-row">
                     <label for="mSource" data-i18n="field_source">Source *</label>
@@ -908,6 +914,14 @@
             save_changes: 'Save changes',
             toast_manual_added: 'Program added to the list',
             toast_manual_updated: 'Program updated',
+            fill_from_link: 'Fill from link',
+            reading_page: 'Reading page…',
+            from_page: 'from page',
+            from_page_check: 'from page · check',
+            toast_filled: '{0} field(s) filled from the page',
+            toast_filled_kept: '{0} filled · {1} kept as you typed',
+            toast_fill_nothing_empty: 'Nothing to fill — every field already has a value',
+            fill_found_nothing: "Couldn't find anything usable on that page. Fill it in by hand.",
         },
         tr: {
             monitoring_sources: '{0} kaynak izleniyor',
@@ -1053,6 +1067,14 @@
             save_changes: 'Değişiklikleri kaydet',
             toast_manual_added: 'Program listeye eklendi',
             toast_manual_updated: 'Program güncellendi',
+            fill_from_link: 'Bağlantıdan doldur',
+            reading_page: 'Sayfa okunuyor…',
+            from_page: 'sayfadan',
+            from_page_check: 'sayfadan · kontrol edin',
+            toast_filled: '{0} alan sayfadan dolduruldu',
+            toast_filled_kept: '{0} dolduruldu · {1} sizin yazdığınız gibi kaldı',
+            toast_fill_nothing_empty: 'Doldurulacak boş alan yok',
+            fill_found_nothing: 'Bu sayfada kullanılabilir bilgi bulunamadı. Elle doldurun.',
         }
     };
 
@@ -1900,6 +1922,8 @@
         document.getElementById('manualHeading').textContent = t(grant ? 'edit_program' : 'add_program');
         document.getElementById('manualSaveText').textContent = t(grant ? 'save_changes' : 'save_program');
         showManualError('');
+        clearFillMarks();
+        syncFillButton();
         populateSourceSuggestions();
         document.getElementById('manualDrawer').classList.add('open');
         document.getElementById('manualDrawer').setAttribute('aria-hidden','false');
@@ -1955,6 +1979,95 @@
             showManualError('' + e.message);
         }
         btn.disabled = false;
+    }
+
+    // ===== FILL THE FORM FROM THE LINK =====
+    // API field name -> the form input it lands in. Only these are ever filled;
+    // Type is left alone, since a page doesn't say whether it's a call or news.
+    const FILL_TARGETS = {
+        title: 'mTitle', description: 'mDesc', source: 'mSource', category: 'mCategory',
+        published_date: 'mPublished', deadline: 'mDeadline', funding_amount: 'mAmount',
+        eligibility: 'mEligibility', application_url: 'mApplyUrl', contact_info: 'mContact',
+    };
+
+    // Show the button only once the link is plausibly fetchable, so it doesn't
+    // sit there inviting a click that can only fail.
+    function syncFillButton() {
+        const url = document.getElementById('mUrl').value.trim();
+        const ok = /^https?:\/\/\S+\.\S+/i.test(url);
+        document.getElementById('fillFromLinkBtn').style.display = ok ? '' : 'none';
+    }
+
+    // Mark a field as machine-filled so it's clear what to check before saving.
+    // The mark is cleared by the field's own input handler: once you've edited
+    // it, it's yours, and a stale "from page" label would be a lie.
+    function markFilled(inputId, level) {
+        const el = document.getElementById(inputId);
+        const row = el.closest('.form-row');
+        if (!row) return;
+        row.classList.add('was-filled');
+        let tag = row.querySelector('.fill-tag');
+        if (!tag) {
+            tag = document.createElement('span');
+            tag.className = 'fill-tag';
+            row.querySelector('label').appendChild(tag);
+        }
+        tag.textContent = t(level === 'high' ? 'from_page' : 'from_page_check');
+        tag.classList.toggle('is-uncertain', level !== 'high');
+    }
+
+    function clearFillMarks() {
+        document.querySelectorAll('#manualDrawer .form-row.was-filled').forEach(row => {
+            row.classList.remove('was-filled');
+            const tag = row.querySelector('.fill-tag');
+            if (tag) tag.remove();
+        });
+    }
+
+    async function fillFromLink() {
+        const btn = document.getElementById('fillFromLinkBtn');
+        const label = document.getElementById('fillFromLinkText');
+        const url = document.getElementById('mUrl').value.trim();
+        btn.disabled = true;
+        btn.classList.add('busy');
+        label.textContent = t('reading_page');
+        showManualError('');
+        try {
+            const r = await fetch('/api/grants/manual/preview', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: url }),
+            });
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok) { showManualError(d.error || ('HTTP ' + r.status)); return; }
+
+            let filled = 0, skipped = 0;
+            Object.keys(FILL_TARGETS).forEach(key => {
+                const value = (d.fields || {})[key];
+                if (!value) return;
+                const el = document.getElementById(FILL_TARGETS[key]);
+                // Only fill what's still empty — anything already typed is the
+                // operator's and outranks the page.
+                if (el.value.trim()) { skipped++; return; }
+                el.value = value;
+                markFilled(FILL_TARGETS[key], (d.confidence || {})[key]);
+                filled++;
+            });
+
+            if (filled) {
+                toast(t(skipped ? 'toast_filled_kept' : 'toast_filled', filled, skipped), 'success');
+            } else if (skipped) {
+                toast(t('toast_fill_nothing_empty'), 'info');
+            } else {
+                showManualError(t('fill_found_nothing'));
+            }
+        } catch (e) {
+            showManualError('' + e.message);
+        } finally {
+            btn.disabled = false;
+            btn.classList.remove('busy');
+            label.textContent = t('fill_from_link');
+        }
     }
 
     // Suggest sources already in use so repeat entries stay spelled the same —
@@ -2237,6 +2350,18 @@
         document.getElementById('manualCloseBtn').addEventListener('click', closeManual);
         document.getElementById('manualBackdrop').addEventListener('click', closeManual);
         document.getElementById('manualSaveBtn').addEventListener('click', saveManual);
+        document.getElementById('mUrl').addEventListener('input', syncFillButton);
+        document.getElementById('fillFromLinkBtn').addEventListener('click', fillFromLink);
+        // Editing a filled field drops its "from page" mark — it's yours now.
+        Object.values(FILL_TARGETS).forEach(function(id) {
+            document.getElementById(id).addEventListener('input', function() {
+                const row = this.closest('.form-row');
+                if (!row || !row.classList.contains('was-filled')) return;
+                row.classList.remove('was-filled');
+                const tag = row.querySelector('.fill-tag');
+                if (tag) tag.remove();
+            });
+        });
 
         // Modal
         document.getElementById('modalCloseBtn').addEventListener('click', closeModal);

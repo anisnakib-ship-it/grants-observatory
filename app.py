@@ -13,7 +13,7 @@ import os
 import json as json_module
 import config
 import database
-from scraper import run_scan, scrape_grant_details
+from scraper import run_scan, scrape_grant_details, check_public_url, summarize_text
 from notifier import notify_new_grants
 from seed_sites import seed_from_excel
 
@@ -629,6 +629,71 @@ def api_add_manual_grant():
         return jsonify({"status": "error", "error": _MANUAL_ERRORS[err]}), 409
     logger.info("Manual announcement added: %s", (data.get("title") or "")[:80])
     return jsonify({"status": "ok", "id": grant_id})
+
+
+@app.route("/api/grants/manual/preview", methods=["POST"])
+def api_preview_manual_grant():
+    """Read a program page and return form values for it — nothing is saved.
+
+    Backs the "Fill from link" button. Deliberately separate from
+    /api/grants/<id>/details: that one writes into an existing row, and here
+    there is no row yet — the operator is still filling the form and may
+    discard everything.
+
+    Values come back with a per-field confidence so the form can mark what it
+    filled: 'high' for structured metadata, 'low' for something inferred from
+    body text (a date in the page could be an event date, not a publish date).
+    """
+    url = ((request.json or {}).get("url") or "").strip()
+    unsafe = check_public_url(url)
+    if unsafe:
+        return jsonify({"status": "error", "error": unsafe}), 400
+
+    result = scrape_grant_details(url)
+    if result["status"] != "ok":
+        return jsonify({
+            "status": "error",
+            "error": f"Could not read that page: {result.get('error', 'unknown error')}",
+        }), 502
+
+    d = result["details"]
+    body = d.get("detailed_description", "")
+    fields, confidence = {}, {}
+
+    def put(name, value, level="high"):
+        if value:
+            fields[name] = value
+            confidence[name] = level
+
+    put("title", d.get("page_title", ""))
+    # A handful of characters is page furniture ("Duyuru", a cookie banner), not
+    # a description — leaving it blank is more useful than filling it with noise.
+    summary = summarize_text(body)
+    put("description", summary if len(summary) >= 40 else "", "low")
+    # The scraper's own trust ordering, passed through rather than re-judged.
+    pub_level = d.get("published_confidence") or ""
+    put("published_date", d.get("published_date", ""), "high" if pub_level in ("high", "medium") else "low")
+    if not fields.get("published_date"):
+        # No dated metadata: a date read out of the body or a linked document is
+        # a guess worth showing, never one worth trusting silently.
+        put("published_date", d.get("text_date") or d.get("url_date") or "", "low")
+    # The form's deadline is a date input, so only a parseable date is usable —
+    # a phrase like "başvurular sürekli açık" is dropped rather than mangled.
+    put("deadline", database.extract_date(d.get("deadline", "")), "low")
+    put("funding_amount", d.get("funding_amount", ""), "low")
+    put("eligibility", d.get("eligibility", ""), "low")
+    put("application_url", d.get("application_url", ""), "low")
+    put("contact_info", d.get("contact_info", ""), "low")
+
+    # Source and category can't be read off a page, but the domain may belong to
+    # a site already monitored — then both are known exactly.
+    site = database.site_for_url(url)
+    if site:
+        put("source", site["name"])
+        put("category", site["category"] if site["category"] in config.CATEGORIES else "")
+
+    access_logger.info("manual preview: %s -> %d field(s)", url[:120], len(fields))
+    return jsonify({"status": "ok", "fields": fields, "confidence": confidence})
 
 
 @app.route("/api/grants/<int:grant_id>/manual", methods=["POST"])

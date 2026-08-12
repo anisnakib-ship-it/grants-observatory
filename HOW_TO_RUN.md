@@ -138,6 +138,34 @@ category comes from the fixed list in `config.CATEGORIES`, so a manual entry
 filters, sorts and charts exactly like a scraped one — and can be sent by email
 and mirrored through the export API the same way.
 
+### Fill from link
+
+Paste the link first and a **Fill from link** button appears under it. It reads
+the page with the same extractor the scans use and fills the rest of the form —
+title, description, publish date, deadline, amount, eligibility, application
+link, contact. If the link's domain belongs to one of the monitored sites, the
+source and category come from that site too.
+
+Two rules make it safe to click:
+
+- **It only fills empty fields.** Anything you already typed wins, so you can
+  click it again after editing without losing corrections.
+- **It marks what it filled.** A purple `FROM PAGE` tag means structured
+  metadata; an amber `FROM PAGE · CHECK` means the value was inferred from body
+  text and deserves a glance — the extractors are regex over wildly varying
+  pages, so an "amount" can be the wrong number and a date can be an event date.
+  The tag disappears as soon as you edit that field.
+
+Nothing is saved until you press Save; the preview endpoint only reads. Fields
+it can't fill are left blank rather than guessed — a deadline written as a
+phrase ("başvurular sürekli açık") can't go in a date input, and a page with
+almost no text won't overwrite the description with a fragment.
+
+The fetch is restricted to public http/https addresses: loopback, private and
+link-local ranges are refused. That matters here because the same host runs
+several unrelated apps on loopback, and without the check a pasted
+`http://127.0.0.1:3000` would pull an internal app's page into the form.
+
 What makes a manual entry different:
 
 - It carries a **MANUAL** badge instead of VERIFIED / NEW-TODAY, and a pencil
