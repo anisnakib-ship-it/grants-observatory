@@ -13,7 +13,9 @@ import os
 import json as json_module
 import config
 import database
-from scraper import run_scan, scrape_grant_details, check_public_url, summarize_text
+from scraper import (
+    run_scan, scrape_grant_details, check_public_url, fetch_public_page, summarize_text,
+)
 from notifier import notify_new_grants
 from seed_sites import seed_from_excel
 
@@ -649,7 +651,10 @@ def api_preview_manual_grant():
     if unsafe:
         return jsonify({"status": "error", "error": unsafe}), 400
 
-    result = scrape_grant_details(url)
+    # fetch_public_page re-checks every redirect hop. The check above still
+    # earns its place: it rejects an obviously bad link with a 400 before any
+    # request is made, rather than reporting it as a failed fetch.
+    result = scrape_grant_details(url, fetcher=fetch_public_page)
     if result["status"] != "ok":
         return jsonify({
             "status": "error",

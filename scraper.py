@@ -285,28 +285,79 @@ def check_public_url(url):
     return ""
 
 
-def fetch_page(url):
+def _get(url, allow_redirects=True):
+    """One GET, retrying through the legacy-TLS adapter if the handshake fails."""
     try:
-        response = requests.get(
-            url, headers=_BASE_HEADERS, timeout=config.REQUEST_TIMEOUT, verify=False
+        return requests.get(
+            url, headers=_BASE_HEADERS, timeout=config.REQUEST_TIMEOUT, verify=False,
+            allow_redirects=allow_redirects,
         )
     except requests.exceptions.SSLError:
         # Retry through an adapter that tolerates legacy/weak TLS handshakes.
         session = requests.Session()
         session.mount("https://", LegacyTLSAdapter())
-        response = session.get(
-            url, headers=_BASE_HEADERS, timeout=config.REQUEST_TIMEOUT, verify=False
+        return session.get(
+            url, headers=_BASE_HEADERS, timeout=config.REQUEST_TIMEOUT, verify=False,
+            allow_redirects=allow_redirects,
         )
-    response.raise_for_status()
-    # Trust an explicit charset from the HTTP header; only fall back to charset
-    # detection when the server didn't declare one. apparent_encoding is a
-    # chardet guess that mis-fires on pages like KOSGEB — UTF-8 bytes served with
-    # a correct "charset=utf-8" header but a stale "<meta charset=iso-8859-9>" —
-    # which the detector latches onto, decoding Turkish letters into mojibake
-    # ("KREDİ" -> "KREDÄ°") and silently breaking keyword matching.
+
+
+def _decode(response):
+    """Response body as text.
+
+    Trust an explicit charset from the HTTP header; only fall back to charset
+    detection when the server didn't declare one. apparent_encoding is a
+    chardet guess that mis-fires on pages like KOSGEB — UTF-8 bytes served with
+    a correct "charset=utf-8" header but a stale "<meta charset=iso-8859-9>" —
+    which the detector latches onto, decoding Turkish letters into mojibake
+    ("KREDİ" -> "KREDÄ°") and silently breaking keyword matching.
+    """
     if "charset=" not in response.headers.get("Content-Type", "").lower():
         response.encoding = response.apparent_encoding or "utf-8"
     return response.text
+
+
+def fetch_page(url):
+    """Fetch a URL from the sites table. Redirects are followed freely — these
+    targets are configured by an administrator, not supplied per request. For a
+    URL a person typed, use fetch_public_page instead."""
+    response = _get(url)
+    response.raise_for_status()
+    return _decode(response)
+
+
+# A redirect chain long enough to need more hops than this is not a program page.
+_MAX_REDIRECTS = 4
+
+
+def fetch_public_page(url):
+    """Fetch a person-supplied URL, re-checking the target at EVERY hop.
+
+    Validating only the typed URL is not enough: requests follows redirects by
+    default, so a public page under someone else's control can answer 302
+    Location: http://127.0.0.1:3000/ and the guard never sees the address that
+    is actually fetched. The attacker fully controls that response, which makes
+    it the easy way through — so redirects are followed by hand here, with
+    check_public_url run against each new target before it is requested.
+
+    Raises ValueError with a message meant for the operator.
+    """
+    seen = url
+    for _ in range(_MAX_REDIRECTS + 1):
+        error = check_public_url(seen)
+        if error:
+            raise ValueError(error)
+        response = _get(seen, allow_redirects=False)
+        if response.is_redirect or response.is_permanent_redirect:
+            location = response.headers.get("Location", "")
+            if not location:
+                raise ValueError("That page redirected without saying where")
+            # Relative redirects are normal; resolve against the current hop.
+            seen = urljoin(seen, location)
+            continue
+        response.raise_for_status()
+        return _decode(response)
+    raise ValueError("That link redirects too many times")
 
 
 def compute_hash(content):
@@ -618,10 +669,15 @@ def summarize_text(text, limit=400):
     return (cut[:space] if space > limit // 2 else cut).strip() + "…"
 
 
-def scrape_grant_details(grant_url):
-    """Visit a grant page and extract detailed information."""
+def scrape_grant_details(grant_url, fetcher=None):
+    """Visit a grant page and extract detailed information.
+
+    `fetcher` overrides how the page is retrieved. The manual-entry preview
+    passes fetch_public_page, because its URL comes from whoever is filling the
+    form rather than from the sites table; scans keep the default.
+    """
     try:
-        html = fetch_page(grant_url)
+        html = (fetcher or fetch_page)(grant_url)
         soup = BeautifulSoup(html, "lxml")
 
         # Publish date by trust order (read before stripping noise tags).
@@ -774,6 +830,10 @@ def scrape_grant_details(grant_url):
         details["published_confidence"] = pub_confidence
         return {"status": "ok", "details": details}
 
+    except ValueError as e:
+        # fetch_public_page's refusals (a redirect into a private address, too
+        # many hops) — already worded for the operator, so pass them through.
+        return {"status": "error", "error": str(e)[:200]}
     except requests.exceptions.Timeout:
         return {"status": "error", "error": "Timeout fetching grant page"}
     except Exception as e:

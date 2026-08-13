@@ -162,9 +162,13 @@ phrase ("başvurular sürekli açık") can't go in a date input, and a page with
 almost no text won't overwrite the description with a fragment.
 
 The fetch is restricted to public http/https addresses: loopback, private and
-link-local ranges are refused. That matters here because the same host runs
-several unrelated apps on loopback, and without the check a pasted
-`http://127.0.0.1:3000` would pull an internal app's page into the form.
+link-local ranges are refused, **and every redirect hop is re-checked**. That
+matters here because the same host runs several unrelated apps on loopback.
+Checking only the address you paste is not enough — a public page can answer
+`302 Location: http://127.0.0.1:3000/`, and following that blindly would hand an
+internal app's page to the form. Scans are unaffected: they fetch URLs from the
+sites table, which an administrator controls, and still follow redirects
+normally (`fetch_page` vs `fetch_public_page` in `scraper.py`).
 
 What makes a manual entry different:
 
