@@ -1,6 +1,10 @@
 {# ---- MACRO: render a grant as a compact table row (shared by dashboard + /api/grants/cards) ---- #}
 {% macro grant_card(grant, card_mode, idx=0, today='') %}
-{% set is_standing = grant.item_type == 'program' %}
+{# Standing means undated, full stop. The tag records that the URL is a
+   catalogue path, but a page on such a path can still carry a real date
+   (DAKA's dated TD programme ilanı); once it does it is a dated
+   announcement and must render as one. #}
+{% set is_standing = grant.item_type == 'program' and not grant.published_date %}
 {# A standing programme has no announcement date at all, so it is never "today's"
    row no matter when the scan first reached it. #}
 {% set is_today = (not is_standing) and grant.found_at and today and grant.found_at[:10] == today %}

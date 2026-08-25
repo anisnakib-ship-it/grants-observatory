@@ -45,18 +45,30 @@ def main():
             params,
         ).fetchall()
 
-        # Retagging is independent of the tombstones and must run even when there
-        # are none left to clear — on a host where an earlier version of this
-        # script already released them, the rows are still labelled "funding" and
-        # would keep rendering as today's announcements.
+        # Both statements below are independent of the tombstones and must run
+        # even when there are none left to clear: on a host where an earlier
+        # version of this script already released them, the rows still carry the
+        # wrong item_type and would keep rendering as today's announcements.
+
+        # Undo over-tagging by the first version of this rule, which retagged
+        # catalogue-path rows regardless of whether they carried a date.
+        untag = conn.execute(
+            "UPDATE grants SET item_type = 'funding'"
+            " WHERE COALESCE(is_manual, 0) = 0 AND item_type = 'program'"
+            " AND COALESCE(published_date, '') != ''"
+        )
         retag = conn.execute(
             "UPDATE grants SET item_type = 'program'"
             " WHERE COALESCE(is_manual, 0) = 0 AND item_type = 'funding'"
+            # Only rows with no date. A catalogue-path page that carries a real
+            # publish date is a dated announcement, not a standing programme.
+            " AND COALESCE(published_date, '') = ''"
             f" AND ({where})",
             params,
         )
         conn.commit()
         print(f"Rows retagged standing:  {retag.rowcount}")
+        print(f"Rows corrected to dated: {untag.rowcount}")
 
         if not rows:
             print("No tombstoned catalogue pages found — nothing to release.")
