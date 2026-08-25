@@ -1372,6 +1372,17 @@ input, select { font-family: inherit; }
 }
 .row-date.is-proxy { color: var(--text-3); font-style: italic; }
 
+/* Standing programme: permanently open, so it carries no announcement date at
+   all. Deliberately quiet — it must not read as a fresh, dated item. */
+.row-flag.standing {
+    display: inline-flex; align-items: center; gap: 3px;
+    color: var(--cyan); background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border-hover);
+    letter-spacing: .06em; flex-shrink: 0;
+}
+.row-flag.standing svg { stroke: var(--cyan); }
+.row-date.is-standing { color: var(--text-3); font-style: normal; }
+
 
 /* Item-type chip: agency NEWS vs funding grant. */
 .row-flag.news-type {

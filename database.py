@@ -465,7 +465,11 @@ def _manual_values(data):
         "url": (data.get("url") or "").strip(),
         "manual_source": (data.get("source") or "").strip(),
         "manual_category": (data.get("category") or "").strip(),
-        "item_type": "news" if (data.get("item_type") or "") == "news" else "funding",
+        # "program" (a standing programme page) is preserved alongside "news" so
+        # editing a scraped catalogue row by hand doesn't silently demote it to a
+        # dated announcement and bring back the misleading "NEW-TODAY" label.
+        "item_type": (data.get("item_type") or "")
+                     if (data.get("item_type") or "") in ("news", "program") else "funding",
         "description": (data.get("description") or "").strip(),
         "published_date": (data.get("published_date") or "").strip(),
         "deadline": deadline,

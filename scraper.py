@@ -446,6 +446,14 @@ def scrape_site(site):
             matched_keywords = matches_keywords(link_text, context=parent_text)
             item_type = "funding" if matched_keywords else ""
 
+            # A standing programme page is a different KIND of row, not a dated
+            # announcement, and the dashboard has to say so: an undated row is
+            # otherwise labelled "~ NEW-TODAY / first seen today", which reads as a
+            # claim the programme was announced today. Tag it so the card can show
+            # it as a permanent programme with no date instead.
+            if item_type == "funding" and _is_program_catalog(href):
+                item_type = "program"
+
             # News mode: a link with no grant keywords but living in a news section
             # ("/haber/<slug>") is tracked as agency activity, tagged item_type=news.
             if (not matched_keywords and getattr(config, "TRACK_AGENCY_NEWS", False)

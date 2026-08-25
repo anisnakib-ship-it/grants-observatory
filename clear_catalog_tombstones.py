@@ -11,6 +11,12 @@ apply_today_filter now keeps an undated catalogue page instead. This clears the
 verdicts already on record so the next scan can actually reach them; without it
 add_grant's tombstone check keeps returning None and nothing changes.
 
+It also retags catalogue rows already stored as item_type='funding'. Those render
+with the "~ NEW-TODAY / first seen today" label and a DATE of "today", which reads
+as a claim the programme was announced today — it was not; it has no announcement
+date at all. item_type='program' is what makes the card show it as standing.
+Hand-added rows are left alone: their item_type is the user's own choice.
+
 Only tombstones on catalogue paths are removed — every other rejection stands.
 Also blanks content_hash on the sites involved so the next scan re-parses them
 rather than short-circuiting on "unchanged".
@@ -38,6 +44,20 @@ def main():
             f" WHERE {where}",
             params,
         ).fetchall()
+
+        # Retagging is independent of the tombstones and must run even when there
+        # are none left to clear — on a host where an earlier version of this
+        # script already released them, the rows are still labelled "funding" and
+        # would keep rendering as today's announcements.
+        retag = conn.execute(
+            "UPDATE grants SET item_type = 'program'"
+            " WHERE COALESCE(is_manual, 0) = 0 AND item_type = 'funding'"
+            f" AND ({where})",
+            params,
+        )
+        conn.commit()
+        print(f"Rows retagged standing:  {retag.rowcount}")
+
         if not rows:
             print("No tombstoned catalogue pages found — nothing to release.")
             return
