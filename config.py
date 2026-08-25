@@ -32,6 +32,16 @@ GRANT_KEYWORDS_STRONG = [
     # other strong keyword. Measured against 60 ab-ilan feed items: +1 (only the
     # intended item), 0 collateral.
     "girişimci",
+    # An open application period is itself a funding action, and agencies often
+    # announce one in plain prose that carries no formulaic phrase. KOSGEB's
+    # "KOBİ'lerin Büyümesine Güçlü Destek, Yeni Başvuru Dönemi Başladı!" hits only
+    # "destek" and "başvuru" — two weak keywords, one short of
+    # MIN_WEAK_KEYWORD_MATCHES — so a real call with a live deadline was dropped.
+    # Keep the phrase whole: bare "başvurular başladı" was measured too and pulls
+    # in symposium, camp and training sign-ups instead. Measured across 56 site
+    # homepages / 1611 candidate links: +4 (two KOSGEB calls, the KA131 and KA171
+    # Erasmus+ calls), 0 collateral.
+    "başvuru dönemi",
 ]
 
 # Weak keywords — need at least MIN_WEAK_KEYWORD_MATCHES to match.
