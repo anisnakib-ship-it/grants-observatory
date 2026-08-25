@@ -590,6 +590,54 @@ def extract_published_date(soup):
     return "", ""
 
 
+# A date printed next to an explicit publish label, e.g. KOSGEB's
+# "Tarih: 08 Ağustos 2026". Anchoring on the label beats "first date near the top
+# of the page": it survives however much nav chrome precedes the article, and it
+# cannot pick up an unrelated date from a sidebar teaser.
+_PUB_DATE_CUE_RE = re.compile(
+    r"(?:yayı?n(?:lanma)?\s*tarihi|duyuru\s*tarihi|eklenme\s*tarihi|tarih)"
+    r"\s*[:\-]\s*"
+    r"(\d{4}-\d{1,2}-\d{1,2}"
+    r"|\d{1,2}[\./\-]\d{1,2}[\./\-]\d{2,4}"
+    r"|\d{1,2}\s+[A-Za-zÇŞĞÜÖİçşğüöı]+\s+\d{4})",
+    re.I,
+)
+# Labels that end in the same word but mark a DEADLINE or a later edit rather than
+# publication. "Son Başvuru Tarihi:" already fails _PUB_DATE_CUE_RE (the bare
+# "tarih" branch needs the colon immediately after), but spellings vary across 65
+# sites, so reject on the preceding word too.
+_NOT_PUB_CUE_RE = re.compile(
+    r"(?:son|başvuru|basvuru|bitiş|bitis|teslim|kapanış|kapanis"
+    r"|güncelleme|guncelleme|revizyon)\s*$",
+    re.I,
+)
+
+
+# An event listing prints the same bare label for when the event HAPPENS:
+# "Tarih: 26 Haziran 2026 Saat: 10.00 - 15.00 Yer: ..." (GMKA training notices) or
+# "Tarih: 27 Nisan 2026 Pazartesi Saat 10:00 Yer Adana ..." (ÇKA info days). A time
+# or place right after the date marks a schedule, not a publication. The weekday is
+# optional and the label may carry no colon, so both spellings have to be tolerated.
+_EVENT_CTX_RE = re.compile(
+    r"^\s*(?:pazartesi|salı|sali|çarşamba|carsamba|perşembe|persembe"
+    r"|cuma|cumartesi|pazar)?\s*(?:saat|yer)\b",
+    re.I,
+)
+
+
+def _cue_published_date(text):
+    """Publish date read from an explicit on-page label, or '' if none."""
+    for m in _PUB_DATE_CUE_RE.finditer(text):
+        if _NOT_PUB_CUE_RE.search(text[max(0, m.start() - 24):m.start()]):
+            continue
+        if _EVENT_CTX_RE.match(text[m.end():m.end() + 30]):
+            continue
+        d = database.extract_date(m.group(1))
+        if d:
+            return d
+    return ""
+
+
 _URL_DATE_YMD = re.compile(r"(?:^|[/_-])(\d{4})[-/_](\d{1,2})[-/_](\d{1,2})(?:[/_.-]|$)")
 _URL_DATE_MDY = re.compile(r"(?:^|[/_])(\d{1,2})-(\d{1,2})-(\d{4})(?:[/_.-]|$)")
 
@@ -732,8 +780,23 @@ def scrape_grant_details(grant_url, fetcher=None):
             # Scan the WHOLE cleaned page top (title/byline bars included), not just
             # the selected content block — many templates print the date in a title
             # bar outside the article, which full_text (main_content only) misses.
-            page_top = extract_text(soup)[:2500]
-            body_guess = database.extract_date(page_top) or database.extract_date(full_text[:2500])
+            #
+            # The 2500-char window is measured from the top of the page text, so on
+            # a template with a long accessibility/mega menu the article's own date
+            # sits right at the edge of it — KOSGEB prints "Tarih:" at offset
+            # ~2200-2400 — and a slightly longer summary pushes it out of reach. A
+            # date-less page is not merely skipped: the today-filter rejects it and
+            # tombstones the link for TOMBSTONE_TTL_DAYS, burying a real program.
+            #
+            # So when the window comes up empty, look for an explicitly LABELLED
+            # date across the whole page. It stays a last resort rather than the
+            # first choice, because the window's "date nearest the headline" rule is
+            # the better signal when it fires at all: a labelled date further down
+            # can belong to an event schedule or a linked round instead.
+            whole_text = extract_text(soup)
+            body_guess = (database.extract_date(whole_text[:2500])
+                          or database.extract_date(full_text[:2500])
+                          or _cue_published_date(whole_text))
             if body_guess:
                 details["text_date"] = body_guess
                 pub_confidence = "low"
@@ -898,13 +961,22 @@ def auto_enrich_new_grants(new_grants):
     return enriched
 
 
-def _feed_page_url(feed_url, page):
-    """URL for a given feed page. Page 1 is the bare feed; later pages use
-    WordPress-style ?paged=N (works on the ab-ilan.com / *.org.tr WP feeds)."""
+def _feed_page_urls(feed_url, page):
+    """Candidate URLs for a given feed page, best-guess first.
+
+    Page 1 is always the bare feed. Later pages depend on the platform, and we
+    cannot tell them apart from the URL: WordPress uses ?paged=N (1-based, the
+    ab-ilan.com / *.org.tr feeds), Drupal uses ?page=N (0-based, the *.gov.tr
+    feeds). Returning both lets the caller try each in turn.
+
+    A site that recognises neither simply ignores the parameter and re-serves
+    page 1. That is not detectable from the response itself, so the caller
+    identifies it the only way available: every link on the page has already been
+    seen, so the candidate yields nothing new and paging stops."""
     if page <= 1:
-        return feed_url
+        return [feed_url]
     sep = "&" if "?" in feed_url else "?"
-    return f"{feed_url}{sep}paged={page}"
+    return [f"{feed_url}{sep}paged={page}", f"{feed_url}{sep}page={page - 1}"]
 
 
 def _parse_feed_item(it, base_url):
@@ -965,32 +1037,37 @@ def scrape_feed(site):
     seen_links = set()
     try:
         for page in range(1, max_pages + 1):
-            page_url = _feed_page_url(feed_url, page)
-            try:
-                xml = fetch_page(page_url)
-            except Exception:
-                if page == 1:
-                    raise           # a broken feed is a real error
-                break               # a missing page 2+ just means the feed is shorter
-            soup = BeautifulSoup(xml, "xml")
-            items = soup.find_all("item") or soup.find_all("entry")
-            if not items:
+            # Items this page contributed, as (title, link, pub, desc), from
+            # whichever paging convention this particular feed honours.
+            fresh = []
+            for candidate in _feed_page_urls(feed_url, page):
+                try:
+                    xml = fetch_page(candidate)
+                except Exception:
+                    if page == 1:
+                        raise       # a broken feed is a real error
+                    continue        # this convention 404s; try the next one
+                soup = BeautifulSoup(xml, "xml")
+                for it in (soup.find_all("item") or soup.find_all("entry")):
+                    parsed = _parse_feed_item(it, candidate)
+                    if parsed and parsed[1] not in seen_links:
+                        fresh.append(parsed)
+                if fresh:
+                    break
+                # Nothing new here: either the feed ended, or the site ignored the
+                # paging parameter and handed back a page we have already read.
+                # Either way this candidate is spent — try the next convention.
+            # Stop paging once no convention turns up anything new, or the whole
+            # page predates the range we keep (newest-first feed => no later page
+            # can be in range).
+            if not fresh:
                 break
             page_dates = []
-            new_on_page = 0
-            for it in items:
-                parsed = _parse_feed_item(it, page_url)
-                if not parsed or parsed[1] in seen_links:
-                    continue
+            for parsed in fresh:
                 seen_links.add(parsed[1])
-                new_on_page += 1
                 if parsed[2]:
                     page_dates.append(parsed[2])
                 collected.append(parsed)
-            # Stop paging once nothing new turns up, or the whole page predates the
-            # range we keep (newest-first feed => no later page can be in range).
-            if not new_on_page:
-                break
             if page_dates and max(page_dates) < range_start:
                 break
     except Exception as e:

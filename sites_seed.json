@@ -417,10 +417,10 @@
   },
   {
     "name": "Türkiye Bilimsel ve Teknolojik Araştırma Kurumu",
-    "url": "https://www.tubitak.gov.tr/",
+    "url": "https://tubitak.gov.tr/tr/duyuru",
     "category": "Kamu Kurumu",
     "css_selector": "",
-    "feed_url": "https://www.tubitak.gov.tr/rss.xml",
+    "feed_url": "",
     "is_active": 1
   },
   {
