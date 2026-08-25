@@ -574,6 +574,69 @@ def _jsonld_published_date(soup):
     return ""
 
 
+# Teaser / carousel containers. A "similar announcements", "latest news" or
+# slider block repeats OTHER articles, each carrying its own <time>. Those dates
+# describe the teasers, never the page they sit on.
+#
+# This is not a corner case: on TÜBİTAK every <time> on an announcement page
+# belongs to a swiper carousel, and on Ufuk Avrupa every one sits in a
+# similar-news row. Neither article marks up its own date at all, so any rule
+# that picks one of those values — first, earliest or latest — is reading another
+# article's date and reporting it with confidence.
+_TEASER_CLASS_SUBSTR = (
+    "similar", "related", "benzer", "other-news",
+    "carousel", "swiper", "slide", "views-row",
+    "teaser", "widget", "popular", "recent", "latest",
+)
+_TEASER_CLASS_RE = re.compile(
+    r"(?<![A-Za-z])(?:" + "|".join(re.escape(x) for x in _TEASER_CLASS_SUBSTR) + r")",
+    re.IGNORECASE,
+)
+
+
+def _in_teaser(el):
+    """True if el sits inside a repeated teaser/carousel block."""
+    node = getattr(el, "parent", None)
+    for _ in range(8):
+        if node is None or not hasattr(node, "get"):
+            return False
+        hay = " ".join(node.get("class") or []) + " " + (node.get("id") or "")
+        if hay.strip() and _TEASER_CLASS_RE.search(hay):
+            return True
+        node = node.parent
+    return False
+
+
+# An element whose class or id NAMES it as the item's date: Drupal renders
+# "node-date", Ufuk Avrupa uses "date-info". That is a far stronger signal than
+# position on the page, because it says what the date IS rather than merely where
+# it sits — the distinction that makes the difference between an article's own
+# date and the event date printed in its headline.
+#
+# The lookarounds keep "date" a whole token, so "node-date"/"date-info"/"h-date"
+# match while "update", "validate" and "datetime" do not.
+_DATE_CLASS_RE = re.compile(r"(?<![A-Za-z])(?:date|tarih)(?![A-Za-z])", re.IGNORECASE)
+
+
+def _marked_date(soup):
+    """Date read from an element whose class/id marks it as the item's date."""
+    for el in soup.find_all(True):
+        hay = " ".join(el.get("class") or []) + " " + (el.get("id") or "")
+        if not hay.strip() or not _DATE_CLASS_RE.search(hay):
+            continue
+        if _in_teaser(el):
+            continue
+        # A date-ish class can also sit on a wrapper holding the whole article, so
+        # only trust an element whose text is short enough to BE a date.
+        text = extract_text(el)
+        if not text or len(text) > 40:
+            continue
+        d = database.extract_date(text)
+        if d:
+            return d
+    return ""
+
+
 def extract_published_date(soup):
     """Find a page's publish date using a trust-ordered set of signals.
 
@@ -599,13 +662,27 @@ def extract_published_date(soup):
     # 2. <time datetime> elements - take the EARLIEST, not the first.
     #    The first <time> is often a "latest news" / sidebar item that is
     #    newer than the article itself (this is the Ufuk Avrupa false-date bug).
+    # Skip any <time> inside a teaser block: it dates another article. If that
+    # leaves nothing, say so rather than guessing — returning '' lets the caller
+    # fall through to the labelled/body date, which IS the page's own.
     time_dates = []
     for el in soup.select("time[datetime]"):
+        if _in_teaser(el):
+            continue
         d = _normalize_date(el.get("datetime") or "")
         if d:
             time_dates.append(d)
     if time_dates:
         return min(time_dates), "medium"
+
+    # 3. An element whose class/id names it the date. Comes after <time> but
+    #    before any positional guess: TÜBİTAK and Ufuk Avrupa mark up their own
+    #    date this way while marking up no <time> for it at all, so without this
+    #    the only remaining signal is "first date on the page" — which on Ufuk
+    #    Avrupa is the event date sitting in the headline.
+    d = _marked_date(soup)
+    if d:
+        return d, "medium"
 
     return "", ""
 
