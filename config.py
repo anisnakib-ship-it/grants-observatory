@@ -95,6 +95,25 @@ NEGATIVE_KEYWORDS = [
 # checked against title + context.
 NEGATIVE_KEYWORDS_TITLE_ONLY = ["atama", "memur", "kadro"]
 
+# Path markers for a STANDING PROGRAMME PAGE — an institution's permanent
+# catalogue entry for a support programme, not a dated announcement about one.
+# KOSGEB's /destekdetay/ pages are the clearest case: measured across the active
+# sites, 7 of 7 carry no publish date anywhere (no metadata, no <time>, no date in
+# the body or URL), because there is nothing to date — the programme simply
+# exists. The date filter rejects anything undated, so these were dropped and
+# tombstoned on every scan and never reached the list.
+#
+# Deliberately narrow. /hibe/ (18 of 18 dated) and /hibefonlar/ (5 of 5) are
+# listings of dated calls, not catalogues, and are excluded — a dated call must
+# keep going through the normal date check. The exemption in apply_today_filter
+# only fires when a page yields NO date at all, so a dated page under one of these
+# markers (e.g. SERKA's "geçmiş" 2024 archives) is unaffected and still rejected.
+PROGRAM_CATALOG_PATH_MARKERS = [
+    "/destekdetay/",
+    "/destekler/",
+    "/destek-programlari/",
+]
+
 # Minimum weak-keyword matches required (a single strong keyword is enough).
 # Raised to 3 so generic pages don't qualify on two common words.
 MIN_WEAK_KEYWORD_MATCHES = 3

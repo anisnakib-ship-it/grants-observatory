@@ -124,6 +124,18 @@ def _is_landing_page(url):
     return bool(last) and bool(_LANDING_SEG_RE.match(last))
 
 
+def _is_program_catalog(url):
+    """True for a standing programme page — an institution's permanent catalogue
+    entry for a support programme rather than a dated announcement about one.
+
+    These carry no publish date because there is nothing to date; the programme
+    simply exists. See config.PROGRAM_CATALOG_PATH_MARKERS."""
+    if not url:
+        return False
+    lowered = url.lower()
+    return any(m in lowered for m in getattr(config, "PROGRAM_CATALOG_PATH_MARKERS", []))
+
+
 def _is_news_article(url):
     """True if the URL is a specific article inside a news/announcement section
     (e.g. '/haber/<slug>/<id>'), i.e. a real story rather than the section index."""
@@ -1252,6 +1264,22 @@ def apply_today_filter(new_grants):
         # items are dropped (an audit showed the old "date-less = today" proxy kept
         # old programs and standing catalog pages, none actually in range).
         if not in_range(reliable):
+            # A standing programme page is undated by nature, so the date rule
+            # cannot judge it: it was being rejected — and tombstoned — on every
+            # scan for lacking evidence it can never have. Keep it instead, once.
+            # add_grant dedups on the normalized URL, so the row is inserted a
+            # single time and later scans neither re-add nor re-notify it.
+            #
+            # Requires read_ok: a page we could not fetch is not known to be
+            # undated, it is simply unread, and that still earns a retry rather
+            # than a keep. Requires an empty date too, so a catalogue-path page
+            # that DOES carry a date (an agency's archived past programmes) stays
+            # subject to the normal range check and is still rejected.
+            if read_ok and not reliable and _is_program_catalog(g.get("url", "")):
+                if details:
+                    database.update_grant_details(g["id"], details)
+                kept.append(g)
+                continue
             # An unreadable page yields no verdict, only a retry. The URL/title
             # fallbacks above are page-independent, so if one of them produced a
             # date we DO have evidence and reject on it as normal; it is only the
