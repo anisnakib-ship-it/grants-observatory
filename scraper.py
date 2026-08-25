@@ -615,6 +615,16 @@ def _in_teaser(el):
 #
 # The lookarounds keep "date" a whole token, so "node-date"/"date-info"/"h-date"
 # match while "update", "validate" and "datetime" do not.
+# Sites render an empty date field as the Unix epoch: oka.gov.tr prints
+# "01 OCAK 1970" inside class="tarih". That parses perfectly and is perfectly
+# useless, so treat an implausibly old date as no date rather than storing it.
+_EARLIEST_PLAUSIBLE_DATE = "2000-01-01"
+
+
+def _plausible(d):
+    return bool(d) and d >= _EARLIEST_PLAUSIBLE_DATE
+
+
 _DATE_CLASS_RE = re.compile(r"(?<![A-Za-z])(?:date|tarih)(?![A-Za-z])", re.IGNORECASE)
 
 
@@ -632,7 +642,7 @@ def _marked_date(soup):
         if not text or len(text) > 40:
             continue
         d = database.extract_date(text)
-        if d:
+        if _plausible(d):
             return d
     return ""
 
@@ -653,10 +663,10 @@ def extract_published_date(soup):
         el = soup.select_one(sel)
         if el and el.get(attr):
             d = _normalize_date(el.get(attr))
-            if d:
+            if _plausible(d):
                 return d, "high"
     d = _jsonld_published_date(soup)
-    if d:
+    if _plausible(d):
         return d, "high"
 
     # 2. <time datetime> elements - take the EARLIEST, not the first.
@@ -670,7 +680,7 @@ def extract_published_date(soup):
         if _in_teaser(el):
             continue
         d = _normalize_date(el.get("datetime") or "")
-        if d:
+        if _plausible(d):
             time_dates.append(d)
     if time_dates:
         return min(time_dates), "medium"
