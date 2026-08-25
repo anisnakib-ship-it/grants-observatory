@@ -634,13 +634,20 @@ _NOT_PUB_CUE_RE = re.compile(
 
 
 # An event listing prints the same bare label for when the event HAPPENS:
-# "Tarih: 26 Haziran 2026 Saat: 10.00 - 15.00 Yer: ..." (GMKA training notices) or
-# "Tarih: 27 Nisan 2026 Pazartesi Saat 10:00 Yer Adana ..." (ÇKA info days). A time
-# or place right after the date marks a schedule, not a publication. The weekday is
-# optional and the label may carry no colon, so both spellings have to be tolerated.
+# "Tarih: 26 Haziran 2026 Saat: 10.00 - 15.00 Yer: ..." (GMKA training notices),
+# "Tarih: 27 Nisan 2026 Pazartesi Saat 10:00 Yer Adana ..." (ÇKA info days), or
+# "Tarih: 4 Mayıs 2026, Pazartesi Saat: 10.30 ..." (DOGAKA). A time or place right
+# after the date marks a schedule, not a publication.
+#
+# Everything between the date and the time/place word varies: the weekday may be
+# absent, and it may be separated by a comma or a dash as well as a space. Allow
+# that punctuation — requiring a bare space is what let the DOGAKA event date
+# through as a publish date.
 _EVENT_CTX_RE = re.compile(
-    r"^\s*(?:pazartesi|salı|sali|çarşamba|carsamba|perşembe|persembe"
-    r"|cuma|cumartesi|pazar)?\s*(?:saat|yer)\b",
+    r"^[\s,;.\-–—]*"
+    r"(?:pazartesi|salı|sali|çarşamba|carsamba|perşembe|persembe"
+    r"|cuma|cumartesi|pazar)?"
+    r"[\s,;.\-–—]*(?:saat|yer)\b",
     re.I,
 )
 
@@ -801,22 +808,30 @@ def scrape_grant_details(grant_url, fetcher=None):
             # the selected content block — many templates print the date in a title
             # bar outside the article, which full_text (main_content only) misses.
             #
-            # The 2500-char window is measured from the top of the page text, so on
-            # a template with a long accessibility/mega menu the article's own date
-            # sits right at the edge of it — KOSGEB prints "Tarih:" at offset
-            # ~2200-2400 — and a slightly longer summary pushes it out of reach. A
-            # date-less page is not merely skipped: the today-filter rejects it and
-            # tombstones the link for TOMBSTONE_TTL_DAYS, burying a real program.
+            # An explicitly LABELLED date is read first. The 2500-char window is
+            # only positional — it takes whichever date appears earliest — and on
+            # KOSGEB the summary paragraph sits ahead of the "Tarih:" line and
+            # states the application window: "başvuruları, 20 Nisan – 8 Mayıs 2026
+            # tarihleri arasında alınacak". "20 Nisan" carries no year so it does
+            # not match, and the window returns 8 Mayıs — the DEADLINE — as the
+            # publish date, 49 characters before the label giving the real one.
             #
-            # So when the window comes up empty, look for an explicitly LABELLED
-            # date across the whole page. It stays a last resort rather than the
-            # first choice, because the window's "date nearest the headline" rule is
-            # the better signal when it fires at all: a labelled date further down
-            # can belong to an event schedule or a linked round instead.
+            # The label also survives however much chrome precedes the article,
+            # which the window does not: KOSGEB prints "Tarih:" at offset
+            # ~2200-2400, so a slightly longer summary pushes it out of range and
+            # the page reads as undated. That is not merely skipped — the
+            # today-filter rejects it and tombstones the link for
+            # TOMBSTONE_TTL_DAYS, burying a real programme.
+            #
+            # Ordering the label first is safe only because _cue_published_date
+            # rejects deadline and event-schedule labels; without those guards it
+            # picks up training and info-day dates. Measured over 94 pages with no
+            # structured date: wherever both signals fire they agree, so the order
+            # changes nothing except the KOSGEB case it is here to fix.
             whole_text = extract_text(soup)
-            body_guess = (database.extract_date(whole_text[:2500])
-                          or database.extract_date(full_text[:2500])
-                          or _cue_published_date(whole_text))
+            body_guess = (_cue_published_date(whole_text)
+                          or database.extract_date(whole_text[:2500])
+                          or database.extract_date(full_text[:2500]))
             if body_guess:
                 details["text_date"] = body_guess
                 pub_confidence = "low"
