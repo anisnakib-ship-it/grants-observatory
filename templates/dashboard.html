@@ -39,8 +39,8 @@
             <div class="setting-group">
                 <h3 data-i18n="scan_config">Scan Configuration</h3>
                 <div class="setting-row">
-                    <label for="setScanInterval" data-i18n="interval_hours">Interval (hours)</label>
-                    <input type="number" id="setScanInterval" min="1" max="24" value="{{ config.SCAN_INTERVAL_HOURS }}" class="setting-input">
+                    <label for="setScanInterval" data-i18n="interval_minutes">Interval (minutes)</label>
+                    <input type="number" id="setScanInterval" min="5" max="1440" step="5" value="{{ config.SCAN_INTERVAL_MINUTES }}" class="setting-input">
                 </div>
                 <div class="setting-row">
                     <label for="setRangeStart" data-i18n="range_start">Announced from</label>
@@ -839,7 +839,7 @@
             // Settings
             settings: 'Settings',
             scan_config: 'Scan Configuration',
-            interval_hours: 'Interval (hours)',
+            interval_minutes: 'Interval (minutes)',
             email_notifications: 'Email Notifications',
             email_alerts: 'Email Alerts',
             sender_gmail: 'Sender Gmail',
@@ -1001,7 +1001,7 @@
             full_page_content: 'Tam Sayfa İçeriği',
             settings: 'Ayarlar',
             scan_config: 'Tarama Yapılandırması',
-            interval_hours: 'Aralık (saat)',
+            interval_minutes: 'Aralık (dakika)',
             email_notifications: 'E-posta Bildirimleri',
             email_alerts: 'E-posta Uyarıları',
             sender_gmail: 'Gönderici Gmail',
@@ -1822,7 +1822,7 @@
     }
     async function saveSettings() {
         const data = {
-            scan_interval_hours: parseInt(document.getElementById('setScanInterval').value) || 3,
+            scan_interval_minutes: parseInt(document.getElementById('setScanInterval').value) || 180,
             scan_range_start: document.getElementById('setRangeStart').value || '',
             scan_range_end: document.getElementById('setRangeEnd').value || '',
             email_enabled: document.getElementById('setEmailEnabled').checked,
@@ -2105,7 +2105,7 @@
     }
 
     // ===== COUNTDOWN =====
-    const INTERVAL = {{ config.SCAN_INTERVAL_HOURS }} * 3600000;
+    const INTERVAL = {{ config.SCAN_INTERVAL_MINUTES }} * 60000;
     let lastScan = null;
     {% if stats.last_scan and stats.last_scan.finished_at %}
     lastScan = new Date('{{ stats.last_scan.finished_at }}Z').getTime();

@@ -6,7 +6,10 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATABASE_PATH = os.path.join(BASE_DIR, "grants_monitor.db")
 
 # Scraping
-SCAN_INTERVAL_HOURS = 3
+# Scan cadence, in MINUTES. Minutes rather than hours because the useful range
+# now runs below an hour, and an hours field cannot express a quarter of one
+# without a fraction the settings form would round away.
+SCAN_INTERVAL_MINUTES = 180
 REQUEST_TIMEOUT = 30
 MAX_WORKERS = 8
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
@@ -308,7 +311,12 @@ _settings_path = os.path.join(BASE_DIR, "settings.json")
 if os.path.exists(_settings_path):
     with open(_settings_path, encoding="utf-8") as _f:
         _overrides = _json.load(_f)
-    SCAN_INTERVAL_HOURS = _overrides.get("scan_interval_hours", SCAN_INTERVAL_HOURS)
+    # scan_interval_hours is what older settings.json files carry; honour it so an
+    # upgrade keeps the cadence it was running, and let minutes win when both exist.
+    if "scan_interval_minutes" in _overrides:
+        SCAN_INTERVAL_MINUTES = _overrides["scan_interval_minutes"]
+    elif "scan_interval_hours" in _overrides:
+        SCAN_INTERVAL_MINUTES = float(_overrides["scan_interval_hours"]) * 60
     EMAIL_ENABLED = _overrides.get("email_enabled", EMAIL_ENABLED)
     EMAIL_PROVIDER = _overrides.get("email_provider", EMAIL_PROVIDER)
     EMAIL_SENDER = _overrides.get("email_sender", EMAIL_SENDER)

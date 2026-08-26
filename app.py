@@ -290,6 +290,9 @@ scan_in_progress = False
 scan_started_at = 0.0  # monotonic timestamp of the current scan's claim
 scheduler = None
 
+# How late a missed scan may still run, in seconds.
+_MISFIRE_GRACE_SECONDS = 300
+
 # A scan that has held the slot longer than this is presumed dead (hung socket,
 # SQLite lock, crashed thread that never hit `finally: _end_scan()`). Set well
 # above a legitimate full scan (~6 min) so it never pre-empts a real one. This
@@ -758,7 +761,7 @@ def api_set_selector(site_id):
 @app.route("/api/settings", methods=["GET"])
 def api_get_settings():
     return jsonify({
-        "scan_interval_hours": config.SCAN_INTERVAL_HOURS,
+        "scan_interval_minutes": config.SCAN_INTERVAL_MINUTES,
         "email_enabled": config.EMAIL_ENABLED,
         "email_provider": config.EMAIL_PROVIDER,
         "email_sender": config.EMAIL_SENDER,
@@ -827,7 +830,7 @@ def api_save_settings():
         ("scan_alert_enabled", "SCAN_ALERT_ENABLED"),
         ("scan_alert_recipients", "SCAN_ALERT_RECIPIENTS"),
         ("sendgrid_api_key", "SENDGRID_API_KEY"),
-        ("scan_interval_hours", "SCAN_INTERVAL_HOURS"),
+        ("scan_interval_minutes", "SCAN_INTERVAL_MINUTES"),
     ]:
         if key in data:
             setattr(config, attr, data[key])
@@ -838,12 +841,21 @@ def api_save_settings():
         config.EMAIL_RECIPIENTS = [e.strip() for e in raw.split(",") if e.strip()]
 
     # Apply a changed scan interval to the running scheduler immediately.
-    if "scan_interval_hours" in data and scheduler is not None:
+    if "scan_interval_minutes" in data and scheduler is not None:
         try:
-            hours = float(config.SCAN_INTERVAL_HOURS)
-            if hours > 0:
-                scheduler.reschedule_job("grant_scan", trigger="interval", hours=hours)
-                logger.info(f"Rescheduled scan to every {hours} hours.")
+            minutes = float(config.SCAN_INTERVAL_MINUTES)
+            # A zero or negative interval would make APScheduler fire continuously,
+            # so refuse it and keep the cadence the scheduler is already running.
+            if minutes >= 1:
+                scheduler.reschedule_job(
+                    "grant_scan", trigger="interval", minutes=minutes,
+                    misfire_grace_time=_MISFIRE_GRACE_SECONDS, coalesce=True,
+                )
+                logger.info(f"Rescheduled scan to every {minutes:g} minutes.")
+            else:
+                logger.warning(
+                    f"Ignoring scan interval of {minutes:g} minutes; must be >= 1."
+                )
         except Exception as e:
             logger.warning(f"Could not reschedule scan job: {e}")
 
@@ -869,15 +881,22 @@ if __name__ == "__main__":
     scheduler.add_job(
         scheduled_scan,
         "interval",
-        hours=config.SCAN_INTERVAL_HOURS,
+        minutes=config.SCAN_INTERVAL_MINUTES,
         id="grant_scan",
+        # A scan takes seconds, but the host is shared and APScheduler's default
+        # grace of 1s drops a run that starts even slightly late — which matters
+        # far more at a 15-minute cadence than at three hours. Allow it to run
+        # late, and coalesce so a backlog fires once rather than repeatedly.
+        misfire_grace_time=_MISFIRE_GRACE_SECONDS,
+        coalesce=True,
+        max_instances=1,
         # NOTE: do NOT pass next_run_time=None here — in APScheduler that leaves the
         # job with no scheduled run (paused forever), which silently disables auto-scan.
         # The interval trigger's default already schedules the FIRST run one interval
         # out (not immediately), which is the intended "don't scan on startup" behavior.
     )
     scheduler.start()
-    logger.info(f"Scheduler started. Scanning every {config.SCAN_INTERVAL_HOURS} hours.")
+    logger.info(f"Scheduler started. Scanning every {config.SCAN_INTERVAL_MINUTES:g} minutes.")
 
     # Serve. Flask's built-in server is development tooling — single-threaded by
     # default and explicitly not meant to take real traffic — so it's used only in
@@ -888,7 +907,7 @@ if __name__ == "__main__":
     print("\n" + "=" * 60)
     print("  GRANTS MONITORING SYSTEM")
     print(f"  Dashboard: http://{config.FLASK_HOST}:{config.FLASK_PORT}")
-    print(f"  Scan interval: every {config.SCAN_INTERVAL_HOURS} hours")
+    print(f"  Scan interval: every {config.SCAN_INTERVAL_MINUTES:g} minutes")
     print(f"  Debug mode: {config.FLASK_DEBUG}")
     print(f"  Server: {server}")
     print("=" * 60 + "\n")
